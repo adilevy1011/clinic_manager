@@ -108,6 +108,14 @@ function bindDashboard() {
     navigateCalendar(1);
     await refresh();
   };
+  document.querySelector('#calendar-previous').onclick = async () => {
+    navigateCalendar(-1);
+    await refresh();
+  };
+  document.querySelector('#calendar-next').onclick = async () => {
+    navigateCalendar(1);
+    await refresh();
+  };
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
   document.querySelector('#new-client').onclick = () => openModal('client');
   document.querySelectorAll('[data-client-id]').forEach((clientButton) => {

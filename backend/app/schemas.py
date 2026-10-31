@@ -43,6 +43,7 @@ class MeetingCreate(BaseModel):
 class MeetingUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    client_id: str | None = None
     meeting_date: date | None = None
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     cost: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
