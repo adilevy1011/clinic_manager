@@ -1,0 +1,41 @@
+.month-picker, .month-controls, .calendar-nav, .calendar-modes, .calendar-toolbar { display: flex; align-items: center; }
+.month-picker { gap: 8px; padding: 4px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+.month-picker button { width: 32px; border: 0; background: transparent; color: var(--ink); cursor: pointer; font-size: 22px; }
+.month-picker select { padding: 6px; border: 0; outline: 0; background: transparent; color: var(--ink); font: 600 14px inherit; }
+.month-controls { gap: 8px; }
+.custom-select { position: relative; min-width: 180px; }
+.select-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--ink); cursor: pointer; font: 600 14px inherit; text-align: left; }
+.select-chevron { color: var(--muted); font-size: 18px; line-height: 1; }
+.select-menu { position: absolute; z-index: 8; top: calc(100% + 6px); right: 0; left: 0; display: none; max-height: 240px; overflow-y: auto; padding: 6px; border: 1px solid var(--line); border-radius: 13px; background: #fff; box-shadow: var(--shadow); }
+.custom-select.is-open .select-menu { display: grid; }
+.select-option { padding: 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); cursor: pointer; font: 500 14px inherit; text-align: left; }
+.select-option:hover, .select-option.selected { background: var(--mint); }
+.calendar-panel { margin-bottom: 20px; overflow: visible; }
+.calendar-toolbar { gap: 8px; }
+.calendar-toolbar > .custom-select { min-width: 155px; }
+.calendar-nav { gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.calendar-nav-button { width: 32px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer; font-size: 24px; line-height: 1; }
+.calendar-nav-button:hover { background: var(--mint); }
+.today-button { padding: 8px 12px; }
+.calendar-modes { gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #fafbf8; }
+.mode-button { padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; font: 600 13px inherit; }
+.calendar-grid { overflow-x: auto; scrollbar-color: #a8bbb0 transparent; scrollbar-width: thin; }
+.calendar-weekdays, .calendar-days { display: grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); min-width: 700px; }
+.calendar-weekdays { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.calendar-weekdays > div { padding: 0 10px 10px; }
+.calendar-day { min-height: 108px; padding: 8px; border-top: 1px solid var(--line); border-right: 1px solid var(--line); background: #fff; }
+.calendar-day:nth-child(7n) { border-right: 0; }
+.calendar-day.outside-month { background: #fafbf8; color: #a7b1ac; }
+.day-number { margin-bottom: 6px; font-size: 13px; font-weight: 700; }
+.calendar-event { display: grid; width: 100%; grid-template-columns: auto 1fr; gap: 3px 5px; margin-top: 5px; padding: 5px 6px; border: 0; border-left: 3px solid #5a8e82; border-radius: 6px; background: var(--mint); color: var(--ink); cursor: pointer; font-size: 11px; line-height: 1.2; text-align: left; }
+.calendar-event span { color: var(--muted); }
+.calendar-event b { grid-column: 2; font-size: 10px; font-weight: 600; }
+.calendar-event.completed { border-left-color: #7a6a9e; background: var(--lilac); }
+.calendar-event.cancelled { border-left-color: var(--coral); background: #fff0ed; }
+.calendar-event:hover { filter: brightness(.97); transform: translateY(-1px); }
+.day-view { min-height: 360px; }
+.day-view-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 16px; font: 600 19px "Playfair Display", serif; }
+.day-event { display: grid; width: 100%; grid-template-columns: 80px 1fr auto; align-items: center; gap: 16px; padding: 16px; text-align: left; cursor: pointer; }
+.day-event-time { font-size: 18px; font-weight: 700; }
+.day-event span:nth-child(2) { display: grid; gap: 3px; }
+.day-event small { color: var(--muted); font-size: 13px; }

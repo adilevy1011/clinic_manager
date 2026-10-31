@@ -1,0 +1,41 @@
+.money-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.rate-note { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--muted); font-size: 13px; }
+.rate-note input { width: 72px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; }
+.new-client-fields, .recurrence-box { padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: #fafbf8; }
+.new-client-fields { padding: 4px 14px 8px; }
+.inline-heading { margin-top: 12px; color: var(--ink-soft); font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.currency-memory { grid-column: 1 / -1; margin: -4px 0 8px; color: var(--muted); font-size: 12px; }
+.client-month-controls, .money-month-controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 18px; }
+.client-month-controls strong, .money-month-controls strong { min-width: 150px; text-align: center; }
+.money-panel { overflow-x: auto; scrollbar-color: #a8bbb0 transparent; scrollbar-width: thin; }
+.money-client-list { display: grid; min-width: 720px; gap: 8px; }
+.money-client-row { display: grid; width: 100%; grid-template-columns: minmax(180px, 1.5fr) repeat(4, minmax(100px, .7fr)) 28px; align-items: center; gap: 14px; padding: 14px; border: 1px solid #edf0eb; border-radius: 14px; background: #fafbf8; color: var(--ink); cursor: pointer; text-align: left; }
+.money-client-row:hover { border-color: #b7cbc1; background: #f3f8f2; }
+.money-client-row > span { display: grid; gap: 3px; }
+.money-client-row > span:first-child { min-width: 0; }
+.money-client-row small, .finance-summary article small { color: var(--muted); font-size: 12px; }
+.money-client-row > span:first-child small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.money-owed strong { color: #9e4436; }
+.finance-section { display: grid; gap: 12px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+.finance-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.finance-summary article { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fafbf8; }
+.finance-summary article span { color: var(--muted); font-size: 12px; }
+.finance-summary article strong { display: grid; gap: 3px; font-size: 20px; }
+.finance-summary .owed { background: var(--lilac); }
+.payment-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; }
+.payment-delete { color: var(--muted); }
+.payment-delete:hover { color: #9e4436; }
+.payment-form { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+.recurrence-details { display: grid; gap: 8px; }
+.recurrence-details[hidden], .weekly-options[hidden], .monthly-options[hidden] { display: none; }
+.weekly-options, .monthly-options { display: grid; gap: 8px; }
+.weekday-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
+.weekday-option { padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); cursor: pointer; font: 600 13px inherit; }
+.weekday-option.selected { border-color: var(--ink); background: var(--ink); color: #fff; }
+.interval-input { display: flex; align-items: center; gap: 8px; }
+.interval-input input { max-width: 100px; }
+.interval-input span { color: var(--muted); font-size: 14px; }
+.checkbox-field { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.checkbox-field input { width: 18px; height: 18px; accent-color: var(--ink); }
+.recurrence-until { margin-bottom: 0; }
+.profile-modal { max-height: calc(100vh - 40px); overflow-y: auto; }

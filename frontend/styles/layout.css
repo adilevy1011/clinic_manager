@@ -1,0 +1,19 @@
+.login-shell { display: grid; min-height: 100vh; padding: 24px; place-items: center; background: radial-gradient(circle at 85% 12%, #dcebe2 0 14%, transparent 35%), var(--paper); }
+.login-card { width: min(460px, 100%); padding: 42px; border-radius: 28px; background: var(--card); box-shadow: var(--shadow); }
+.login-card h1 { margin: 48px 0 14px; font: 600 clamp(38px, 7vw, 58px)/1.04 "Playfair Display", serif; letter-spacing: -.04em; }
+.login-card p, .intro p, .client-heading p { margin: 0 0 28px; color: var(--muted); }
+.dashboard { max-width: 1240px; margin: auto; padding: 30px 28px 72px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 42px; }
+.user-actions { display: flex; align-items: center; gap: 12px; }
+.avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: var(--coral); color: #fff; font-weight: 700; }
+.intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.intro h1, .client-heading h1 { margin: 5px 0 12px; font: 600 clamp(38px, 6vw, 65px)/1.02 "Playfair Display", serif; letter-spacing: -.05em; }
+.client-heading { margin: 14px 0 24px; }
+.client-heading h1 { margin: 8px 0 10px; }
+.back-link { display: inline-block; margin-bottom: 20px; color: var(--muted); font-weight: 600; text-decoration: none; }
+.back-link:hover { color: var(--ink); }
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+.section-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .8fr); gap: 20px; align-items: start; }
+.today-layout { display: grid; gap: 20px; }
+.today-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.today-schedule { min-height: 300px; }

@@ -1,0 +1,74 @@
+.top-nav, .client-tabs, .calendar-grid, .money-panel { scrollbar-color: #a8bbb0 transparent; scrollbar-width: thin; }
+.top-nav::-webkit-scrollbar, .client-tabs::-webkit-scrollbar, .calendar-grid::-webkit-scrollbar, .money-panel::-webkit-scrollbar { height: 6px; }
+.top-nav::-webkit-scrollbar-thumb, .client-tabs::-webkit-scrollbar-thumb, .calendar-grid::-webkit-scrollbar-thumb, .money-panel::-webkit-scrollbar-thumb { border-radius: 99px; background: #a8bbb0; }
+
+@media (max-width: 800px) {
+  .dashboard { padding-inline: 16px; }
+  .topbar { align-items: center; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+  .top-nav { flex: 0 1 100%; order: 3; width: 100%; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; padding: 2px 2px 8px; margin-inline: -2px; }
+  .top-nav-link, .top-nav-action { flex: 0 0 auto; white-space: nowrap; }
+  .top-nav-action { margin-left: 0; }
+  .panel-header { align-items: flex-start; }
+  .calendar-panel .panel-header { flex-direction: column; }
+  .calendar-toolbar { width: 100%; flex-wrap: wrap; }
+  .calendar-toolbar > .custom-select { flex: 1 1 150px; }
+  .calendar-modes { flex: 1 1 180px; }
+  .mode-button { flex: 1; }
+  .money-month-controls { justify-content: space-between; }
+  .money-client-list { min-width: 680px; }
+  .money-panel { padding-bottom: 14px; }
+}
+
+@media (max-width: 600px) {
+  .client-tabs { width: 100%; overflow-x: auto; }
+  .client-tab { flex: 1 0 auto; white-space: nowrap; }
+  .day-event { grid-template-columns: 60px 1fr; }
+  .day-event .meeting-cost { grid-column: 2; }
+}
+
+@media (max-width: 520px) {
+  .dashboard { padding: 14px 12px 40px; }
+  .topbar { margin-bottom: 20px; }
+  .brand-mark { flex: 0 0 auto; }
+  .user-actions { margin-left: auto; }
+  .user-actions .button.secondary { display: none; }
+  .avatar { width: 40px; height: 40px; }
+  .intro { gap: 16px; margin-bottom: 20px; }
+  .intro h1, .client-heading h1 { font-size: clamp(36px, 13vw, 52px); }
+  .login-card { padding: 30px 24px; }
+  .login-card h1 { margin-top: 38px; }
+  .panel { padding: 16px; border-radius: 17px; }
+  .panel-header { gap: 10px; margin-bottom: 14px; }
+  .panel-note { max-width: 42ch; }
+  .month-picker { width: 100%; min-height: 44px; justify-content: space-between; }
+  .summary-grid, .today-summary, .finance-summary, .form-grid, .money-fields { grid-template-columns: 1fr; }
+  .summary-card { min-height: 0; padding: 16px; }
+  .summary-value { font-size: 27px; }
+  .full-span { grid-column: auto; }
+  .meeting { grid-template-columns: 62px minmax(0, 1fr); gap: 10px; padding: 12px; }
+  .meeting-cost { grid-column: 2; text-align: left; }
+  .status-pill { display: table; margin: 5px 0 0; }
+  .calendar-toolbar { gap: 6px; }
+  .calendar-toolbar > .custom-select { min-width: 0; flex-basis: 100%; }
+  .calendar-grid { margin-inline: -4px; padding-inline: 4px 2px; }
+  .calendar-weekdays, .calendar-days { grid-template-columns: repeat(7, minmax(80px, 1fr)); min-width: 560px; }
+  .calendar-day { min-height: 94px; padding: 6px; }
+  .calendar-event { font-size: 10px; }
+  .calendar-event b { font-size: 9px; }
+  .client-tabs { max-width: 100%; margin-inline: 0; padding: 4px; }
+  .client-tab { padding-inline: 11px; }
+  .client-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 13px; }
+  .client-row .client-arrow { grid-column: 2; grid-row: 1; }
+  .client-row small { overflow-wrap: anywhere; }
+  .reminder-row { grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; padding: 13px; }
+  .reminder-when { grid-column: 2 / -1; }
+  .day-event { grid-template-columns: 54px minmax(0, 1fr); gap: 10px; padding: 13px; }
+  .modal-backdrop { padding: 8px; }
+  .modal { max-height: calc(100dvh - 16px); padding: 18px; border-radius: 18px; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions .button { flex: 1 1 130px; }
+  .button.danger { margin-right: 0; }
+  .rate-note { align-items: flex-start; flex-wrap: wrap; }
+  .payment-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .payment-row .payment-delete { grid-column: 2; grid-row: 1; }
+}
