@@ -55,25 +55,39 @@ function meetingCard(meeting, rate) {
   const currency = meeting.currency || DEFAULT_DISPLAY_CURRENCY;
   const comment = meeting.notes ? ` · ${escapeHtml(meeting.notes)}` : '';
 
-  return `<div class="meeting">
+  return `<div class="meeting meeting-action" data-meeting-id="${escapeHtml(meeting.id)}" role="button" tabindex="0">
     <div><div class="meeting-date">${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div><div class="meeting-time">${escapeHtml(meeting.start_time.slice(0, 5))}</div></div>
     <div><div class="meeting-name">${escapeHtml(meeting.clients?.name || 'Client')}<span class="status-pill ${meeting.status === 'cancelled' ? 'cancelled' : ''}">${escapeHtml(meeting.status)}</span></div><div class="meeting-meta">${meeting.status === 'completed' ? 'Completed session' : 'Scheduled session'}${comment}</div></div>
     <div class="meeting-cost"><strong>${primary(meeting.cost, currency, rate)}</strong><small>${secondary(meeting.cost, currency, rate)}</small></div>
   </div>`;
 }
 
-function calendarMarkup(month, meetings, rate) {
-  const first = new Date(`${month}-01T12:00:00`);
-  const start = new Date(first);
-  start.setDate(1 - first.getDay());
+function calendarEvent(meeting, rate) {
+  return `<button type="button" class="calendar-event ${meeting.status}" data-meeting-id="${escapeHtml(meeting.id)}" title="Edit ${escapeHtml(meeting.clients?.name || 'Client')}"><span>${escapeHtml(meeting.start_time.slice(0, 5))}</span> ${escapeHtml(meeting.clients?.name || 'Client')}<b>${primary(meeting.cost, meeting.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</b></button>`;
+}
 
-  return `<div class="calendar-grid"><div class="calendar-weekdays">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => `<div>${day}</div>`).join('')}</div><div class="calendar-days">${Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    const date = day.toISOString().slice(0, 10);
-    const dayMeetings = meetings.filter((meeting) => meeting.meeting_date === date);
-    return `<div class="calendar-day ${date.startsWith(month) ? '' : 'outside-month'}"><div class="day-number">${day.getDate()}</div>${dayMeetings.map((meeting) => `<div class="calendar-event ${meeting.status}" title="${escapeHtml(meeting.clients?.name || 'Client')} · ${escapeHtml(meeting.start_time.slice(0, 5))}"><span>${escapeHtml(meeting.start_time.slice(0, 5))}</span> ${escapeHtml(meeting.clients?.name || 'Client')}<b>${primary(meeting.cost, meeting.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</b></div>`).join('')}</div>`;
-  }).join('')}</div></div>`;
+function calendarDay(date, meetings, month, rate) {
+  const dayMeetings = meetings.filter((meeting) => meeting.meeting_date === date);
+  const day = new Date(`${date}T12:00:00`);
+  return `<div class="calendar-day ${date.startsWith(month) ? '' : 'outside-month'}" data-calendar-date="${date}"><div class="day-number">${day.getDate()}</div>${dayMeetings.map((meeting) => calendarEvent(meeting, rate)).join('')}</div>`;
+}
+
+function weekStart(date) {
+  const start = new Date(`${date}T12:00:00`);
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+}
+
+function calendarMarkup(mode, month, meetings, rate, focusDate) {
+  if (mode === 'day') {
+    const dayMeetings = meetings.filter((meeting) => meeting.meeting_date === focusDate).sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const day = new Date(`${focusDate}T12:00:00`);
+    return `<div class="day-view" data-calendar-date="${focusDate}"><div class="day-view-heading"><span>${day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span><button type="button" class="button secondary" data-day-add="${focusDate}">+ Add session</button></div><div class="day-event-list">${dayMeetings.length ? dayMeetings.map((meeting) => `<button type="button" class="day-event" data-meeting-id="${escapeHtml(meeting.id)}"><span class="day-event-time">${escapeHtml(meeting.start_time.slice(0, 5))}</span><span><strong>${escapeHtml(meeting.clients?.name || 'Client')}</strong><small>${escapeHtml(meeting.notes || 'No comments')}</small></span><span class="meeting-cost"><strong>${primary(meeting.cost, meeting.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</strong><small>${secondary(meeting.cost, meeting.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</small></span></button>`).join('') : '<div class="empty"><strong>No sessions on this day.</strong>Use Add session to schedule one.</div>'}</div></div>`;
+  }
+
+  const first = mode === 'week' ? weekStart(focusDate) : weekStart(`${month}-01`);
+  const numberOfDays = mode === 'week' ? 7 : 42;
+  return `<div class="calendar-grid ${mode}-calendar"><div class="calendar-weekdays">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].slice(0, mode === 'week' ? 7 : 7).map((day) => `<div>${day}</div>`).join('')}</div><div class="calendar-days">${Array.from({ length: numberOfDays }, (_, index) => { const day = new Date(first); day.setDate(first.getDate() + index); return calendarDay(day.toISOString().slice(0, 10), meetings, month, rate); }).join('')}</div></div>`;
 }
 
 function clientRow(client, rate) {
@@ -81,7 +95,7 @@ function clientRow(client, rate) {
   return `<button class="client-row" data-client-id="${escapeHtml(client.id)}"><span><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.email || 'No email added')}</small></span><span class="meeting-cost"><strong>${primary(client.default_fee, currency, rate)}</strong><small>${secondary(client.default_fee, currency, rate)}</small></span><span class="client-arrow">›</span></button>`;
 }
 
-export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_ILS) {
+export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_ILS, calendarMode = 'month', focusDate = `${month}-01`) {
   const meetings = [...workspace.meetings].sort((a, b) => `${a.meeting_date}${a.start_time}`.localeCompare(`${b.meeting_date}${b.start_time}`));
   const completedTotal = meetings.filter((item) => item.status === 'completed').reduce((sum, item) => sum + Number(item.cost || 0), 0);
 
@@ -90,29 +104,37 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
     <section class="intro"><div><div class="eyebrow">Private practice · Israel</div><h1>Your month, in view.</h1><p>Sessions, fees, and payments — together in one place.</p></div><div class="month-controls"><button class="icon-button" id="previous-month" aria-label="Previous month">‹</button>${monthPicker(month)}<button class="icon-button" id="next-month" aria-label="Next month">›</button></div></section>
     <section class="summary-grid"><article class="summary-card"><div class="summary-label">Sessions this month</div><div class="summary-value">${meetings.length}</div></article><article class="summary-card mint"><div class="summary-label">Fees charged · ILS</div><div class="summary-value">${ils(completedTotal)} <small>${usd(completedTotal, rate)}</small></div></article><article class="summary-card lilac"><div class="summary-label">Upcoming</div><div class="summary-value">${meetings.filter((item) => item.status === 'scheduled').length}</div></article></section>
     <nav class="view-tabs" aria-label="Workspace views"><button class="tab-button active" data-tab="calendar-view">Calendar</button><button class="tab-button" data-tab="sessions-view">Sessions</button><button class="tab-button" data-tab="clients-view">Clients</button><button class="button tab-action" id="new-meeting">+ New session</button></nav>
-    <section class="view-panel" id="calendar-view"><section class="panel calendar-panel"><div class="panel-header"><div><h2>Calendar</h2><p class="panel-note">${monthLabel(month)} · ${meetings.length} sessions</p></div></div>${calendarMarkup(month, meetings, rate)}</section></section>
+    <section class="view-panel" id="calendar-view"><section class="panel calendar-panel"><div class="panel-header"><div><h2>Calendar</h2><p class="panel-note">${monthLabel(month)} · ${meetings.length} sessions</p></div><div class="calendar-modes" role="group" aria-label="Calendar view"><button class="mode-button ${calendarMode === 'month' ? 'active' : ''}" data-calendar-mode="month">Month</button><button class="mode-button ${calendarMode === 'week' ? 'active' : ''}" data-calendar-mode="week">Week</button><button class="mode-button ${calendarMode === 'day' ? 'active' : ''}" data-calendar-mode="day">Day</button></div></div>${calendarMarkup(calendarMode, month, meetings, rate, focusDate)}</section></section>
     <section class="view-panel hidden" id="sessions-view"><section class="panel"><div class="panel-header"><h2>Sessions</h2></div><div class="meeting-list">${meetings.length ? meetings.map((meeting) => meetingCard(meeting, rate)).join('') : '<div class="empty"><strong>Your month is clear.</strong>Add a session when one is ready to schedule.</div>'}</div></section></section>
     <section class="view-panel hidden" id="clients-view"><section class="panel"><div class="panel-header"><div><h2>Clients</h2><p class="panel-note">Select a client to view and edit their profile.</p></div><button class="button secondary" id="new-client">Add client</button></div><div class="client-list">${workspace.clients.length ? workspace.clients.map((client) => clientRow(client, rate)).join('') : '<div class="empty"><strong>No clients yet.</strong>Add a client to get started.</div>'}</div></section></section>
   </main>`;
 }
 
-function moneyFields(prefix, value = '', required = true, currency = DEFAULT_DISPLAY_CURRENCY) {
-  return `<div class="money-fields full-span" data-money-group data-prefix="${prefix}" data-currency="${currency}"><div class="form-field"><label>Fee in shekels (₪)</label><input name="${prefix}_ils" type="number" min="0" step="0.01" value="${value}" inputmode="decimal" ${required ? 'required' : ''}></div><div class="form-field"><label>Fee in dollars ($)</label><input name="${prefix}_usd" type="number" min="0" step="0.01" inputmode="decimal"></div><div class="currency-memory">This record remembers the last currency you use.</div></div>`;
+function moneyFields(prefix, value = '', required = true, currency = DEFAULT_DISPLAY_CURRENCY, alternateValue = '') {
+  return `<div class="money-fields full-span" data-money-group data-prefix="${prefix}" data-currency="${currency}"><div class="form-field"><label>Fee in shekels (₪)</label><input name="${prefix}_ils" type="number" min="0" step="0.01" value="${value}" inputmode="decimal" ${required ? 'required' : ''}></div><div class="form-field"><label>Fee in dollars ($)</label><input name="${prefix}_usd" type="number" min="0" step="0.01" value="${alternateValue}" inputmode="decimal"></div><div class="currency-memory">This record remembers the last currency you use.</div></div>`;
 }
 
-export function renderModal(type, clients, rate = DEFAULT_USD_TO_ILS) {
+export function renderModal(type, clients, rate = DEFAULT_USD_TO_ILS, existingMeeting = null, initialDate = null) {
   const meeting = type === 'meeting';
   const today = new Date().toISOString().slice(0, 10);
   const clientOptions = clients.map((client) => ({ value: client.id, label: `${client.name} · ${primary(client.default_fee, client.currency || DEFAULT_DISPLAY_CURRENCY, rate)}` }));
   if (meeting) clientOptions.push({ value: '__new__', label: '+ Create a new client' });
-  const selectedClient = clients[0];
-  const selectedCurrency = selectedClient?.currency || DEFAULT_DISPLAY_CURRENCY;
+  const selectedClient = existingMeeting ? clients.find((client) => client.id === existingMeeting.client_id) : clients[0];
+  const selectedCurrency = existingMeeting?.currency || selectedClient?.currency || DEFAULT_DISPLAY_CURRENCY;
+  const initialMeetingDate = existingMeeting?.meeting_date || initialDate || today;
+  const initialIls = existingMeeting ? existingMeeting.cost : '';
+  const initialUsd = existingMeeting && selectedCurrency === 'USD' ? (Number(existingMeeting.cost) / rate).toFixed(2) : '';
+  const statusValue = existingMeeting?.status || 'scheduled';
+  const statusLabel = statusOptions.find((option) => option.value === statusValue)?.label || 'Scheduled';
+  const title = existingMeeting ? 'Edit session' : 'Schedule a session';
   const statusOptions = [{ value: 'scheduled', label: 'Scheduled' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }];
 
-  return `<div class="modal-backdrop" id="modal-backdrop"><section class="modal"><div class="modal-header"><div><div class="eyebrow">${meeting ? 'Calendar entry' : 'Client directory'}</div><h2>${meeting ? 'Schedule a session' : 'Add a client'}</h2></div><button class="close" id="close-modal" aria-label="Close">×</button></div><form id="modal-form" class="form-grid">${meeting ? `<div class="form-field full-span"><label>Client</label>${customSelect({ id: 'client-select', name: 'client_id', value: selectedClient?.id || '__new__', label: selectedClient?.name || '+ Create a new client', options: clientOptions })}</div><div class="new-client-fields full-span" hidden><div class="inline-heading">New client details</div><div class="form-field"><label>Name</label><input name="new_client_name" placeholder="Client name"></div><div class="form-field"><label>Email (optional)</label><input name="new_client_email" type="email" placeholder="client@example.com"></div>${moneyFields('new_client_fee', '', false)}</div><div class="form-field"><label>Date</label><input name="meeting_date" type="date" value="${today}" required></div><div class="form-field"><label>Time</label><input name="start_time" type="time" value="09:00" required></div>${moneyFields('cost', '', true, selectedCurrency)}<div class="form-field"><label>Outcome</label>${customSelect({ id: 'status-select', name: 'status', value: 'scheduled', label: 'Scheduled', options: statusOptions })}</div><div class="form-field full-span"><label>Comments about this meeting</label><textarea name="notes" rows="3" maxlength="1000" placeholder="Private notes about the session"></textarea></div><div class="rate-note full-span">Working rate: 1 USD = <input name="exchange_rate" value="${rate.toFixed(2)}" type="number" min="0.01" step="0.01"> ILS. Both fee fields stay in sync.</div>` : `<div class="form-field full-span"><label>Name</label><input name="name" required placeholder="Client name"></div><div class="form-field full-span"><label>Email (optional)</label><input name="email" type="email" placeholder="client@example.com"></div>${moneyFields('default_fee')}<div class="form-field full-span"><label>Client comments</label><textarea name="notes" rows="4" maxlength="3000" placeholder="Context, preferences, or private notes"></textarea></div><div class="rate-note full-span">Working rate: 1 USD = <input name="exchange_rate" value="${rate.toFixed(2)}" type="number" min="0.01" step="0.01"> ILS.</div>`}<div class="full-span"><button class="button full">Save ${meeting ? 'session' : 'client'}</button></div></form></section></div>`;
+  return `<div class="modal-backdrop" id="modal-backdrop"><section class="modal"><div class="modal-header"><div><div class="eyebrow">${meeting ? 'Calendar entry' : 'Client directory'}</div><h2>${meeting ? title : 'Add a client'}</h2></div><button class="close" id="close-modal" aria-label="Close">×</button></div><form id="modal-form" class="form-grid">${meeting ? `<div class="form-field full-span"><label>Client</label>${customSelect({ id: 'client-select', name: 'client_id', value: selectedClient?.id || '__new__', label: selectedClient?.name || '+ Create a new client', options: clientOptions })}</div><div class="new-client-fields full-span" hidden><div class="inline-heading">New client details</div><div class="form-field"><label>Name</label><input name="new_client_name" placeholder="Client name"></div><div class="form-field"><label>Email (optional)</label><input name="new_client_email" type="email" placeholder="client@example.com"></div>${moneyFields('new_client_fee', '', false)}</div><div class="form-field"><label>Date</label><input name="meeting_date" type="date" value="${initialMeetingDate}" required></div><div class="form-field"><label>Time</label><input name="start_time" type="time" value="${existingMeeting?.start_time?.slice(0, 5) || '09:00'}" required></div>${moneyFields('cost', initialIls, true, selectedCurrency, initialUsd)}<div class="form-field"><label>Outcome</label>${customSelect({ id: 'status-select', name: 'status', value: statusValue, label: statusLabel, options: statusOptions })}</div><div class="form-field full-span"><label>Comments about this meeting</label><textarea name="notes" rows="3" maxlength="1000" placeholder="Private notes about the session">${escapeHtml(existingMeeting?.notes || '')}</textarea></div><div class="rate-note full-span">Working rate: 1 USD = <input name="exchange_rate" value="${rate.toFixed(2)}" type="number" min="0.01" step="0.01"> ILS. Both fee fields stay in sync.</div>` : `<div class="form-field full-span"><label>Name</label><input name="name" required placeholder="Client name"></div><div class="form-field full-span"><label>Email (optional)</label><input name="email" type="email" placeholder="client@example.com"></div>${moneyFields('default_fee')}<div class="form-field full-span"><label>Client comments</label><textarea name="notes" rows="4" maxlength="3000" placeholder="Context, preferences, or private notes"></textarea></div><div class="rate-note full-span">Working rate: 1 USD = <input name="exchange_rate" value="${rate.toFixed(2)}" type="number" min="0.01" step="0.01"> ILS.</div>`}<div class="modal-actions full-span">${meeting && existingMeeting ? '<button type="button" class="button danger" id="delete-meeting">Delete session</button>' : ''}<button class="button">Save ${meeting ? 'session' : 'client'}</button></div></form></section></div>`;
 }
 
 export function renderClientProfile(client, rate = DEFAULT_USD_TO_ILS) {
   const currency = client.currency || DEFAULT_DISPLAY_CURRENCY;
-  return `<div class="modal-backdrop" id="client-profile-backdrop"><section class="modal profile-modal"><div class="modal-header"><div><div class="eyebrow">Client profile</div><h2>${escapeHtml(client.name)}</h2></div><button class="close" id="close-client-profile" aria-label="Close">×</button></div><form id="client-profile-form" class="form-grid"><div class="form-field full-span"><label>Name</label><input name="name" value="${escapeHtml(client.name)}" required></div><div class="form-field full-span"><label>Email</label><input name="email" type="email" value="${escapeHtml(client.email || '')}"></div>${moneyFields('default_fee', '', true, currency)}<div class="form-field full-span"><label>Client comments</label><textarea name="notes" rows="7" maxlength="3000" placeholder="Context, preferences, or private notes">${escapeHtml(client.notes || '')}</textarea></div><div class="rate-note full-span">The saved currency preference is based on the last fee field you use.</div><div class="full-span"><button class="button full">Save profile</button></div></form></section></div>`;
+  const ilsValue = client.default_fee;
+  const usdValue = currency === 'USD' ? (Number(client.default_fee) / rate).toFixed(2) : '';
+  return `<div class="modal-backdrop" id="client-profile-backdrop"><section class="modal profile-modal"><div class="modal-header"><div><div class="eyebrow">Client profile</div><h2>${escapeHtml(client.name)}</h2></div><button class="close" id="close-client-profile" aria-label="Close">×</button></div><form id="client-profile-form" class="form-grid"><div class="form-field full-span"><label>Name</label><input name="name" value="${escapeHtml(client.name)}" required></div><div class="form-field full-span"><label>Email</label><input name="email" type="email" value="${escapeHtml(client.email || '')}"></div>${moneyFields('default_fee', ilsValue, true, currency, usdValue)}<div class="form-field full-span"><label>Client comments</label><textarea name="notes" rows="7" maxlength="3000" placeholder="Context, preferences, or private notes">${escapeHtml(client.notes || '')}</textarea></div><div class="rate-note full-span">The saved currency preference is based on the last fee field you use.</div><div class="full-span"><button class="button full">Save profile</button></div></form></section></div>`;
 }

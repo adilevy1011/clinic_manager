@@ -53,6 +53,17 @@ export async function updateClient(clientId, payload) {
   });
 }
 
+export async function updateMeeting(meetingId, payload) {
+  return request(`/meetings/${meetingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMeeting(meetingId) {
+  return request(`/meetings/${meetingId}`, { method: 'DELETE' });
+}
+
 export function isDemo() {
   return DEMO_MODE;
 }

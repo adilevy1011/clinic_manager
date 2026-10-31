@@ -1,4 +1,13 @@
-import { createRecord, isDemo, loadWorkspace, login, logout, updateClient } from './api.js';
+import {
+  createRecord,
+  deleteMeeting,
+  isDemo,
+  loadWorkspace,
+  login,
+  logout,
+  updateClient,
+  updateMeeting,
+} from './api.js';
 import { currentMonth, sampleWorkspace, shiftMonth } from './data.js';
 import { DEFAULT_DISPLAY_CURRENCY, DEFAULT_USD_TO_ILS, getOfficialShekelRate } from './currency.js';
 import { renderClientProfile, renderDashboard, renderLogin, renderModal } from './views.js';
@@ -7,6 +16,8 @@ const root = document.querySelector('#app');
 const demo = isDemo();
 let month = currentMonth();
 let workspace = null;
+let calendarMode = 'month';
+let focusDate = `${month}-01`;
 const demoWorkspace = structuredClone(sampleWorkspace);
 let exchangeRate = Number(localStorage.getItem('stillpoint-usd-ils-rate')) || DEFAULT_USD_TO_ILS;
 
@@ -19,7 +30,7 @@ async function refresh() {
     }
     : await loadWorkspace(month);
 
-  renderDashboard(root, workspace, month, exchangeRate);
+  renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
   bindDashboard();
 }
 
@@ -46,12 +57,44 @@ function bindDashboard() {
     };
   });
 
+  document.querySelectorAll('[data-calendar-mode]').forEach((modeButton) => {
+    modeButton.onclick = () => {
+      calendarMode = modeButton.dataset.calendarMode;
+      renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
+      bindDashboard();
+    };
+  });
+
+  document.querySelectorAll('.calendar-day[data-calendar-date]').forEach((day) => {
+    day.onclick = (event) => {
+      if (event.target.closest('[data-meeting-id]')) return;
+      focusDate = day.dataset.calendarDate;
+      calendarMode = 'day';
+      renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
+      bindDashboard();
+    };
+  });
+
+  document.querySelectorAll('[data-day-add]').forEach((button) => {
+    button.onclick = () => openModal('meeting', { date: button.dataset.dayAdd });
+  });
+
+  document.querySelectorAll('[data-meeting-id]').forEach((eventElement) => {
+    eventElement.onclick = (event) => {
+      event.stopPropagation();
+      const meeting = workspace.meetings.find((item) => item.id === eventElement.dataset.meetingId);
+      if (meeting) openModal('meeting', { meeting });
+    };
+  });
+
   document.querySelector('#previous-month').onclick = async () => {
     month = shiftMonth(month, -1);
+    focusDate = `${month}-01`;
     await refresh();
   };
   document.querySelector('#next-month').onclick = async () => {
     month = shiftMonth(month, 1);
+    focusDate = `${month}-01`;
     await refresh();
   };
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
@@ -158,8 +201,8 @@ function formValues(form) {
   return values;
 }
 
-function openModal(type) {
-  document.body.insertAdjacentHTML('beforeend', renderModal(type, workspace.clients, exchangeRate));
+function openModal(type, options = {}) {
+  document.body.insertAdjacentHTML('beforeend', renderModal(type, workspace.clients, exchangeRate, options.meeting, options.date));
   const modal = document.querySelector('#modal-backdrop');
   const form = document.querySelector('#modal-form');
 
@@ -169,6 +212,25 @@ function openModal(type) {
 
   const clientSelect = document.querySelector('#client-select');
   if (clientSelect?.dataset.value === '__new__') setNewClientVisibility(true);
+
+  const deleteButton = document.querySelector('#delete-meeting');
+  if (deleteButton && options.meeting) {
+    deleteButton.onclick = async () => {
+      if (!window.confirm('Delete this session?')) return;
+      try {
+        if (demo) {
+          const index = demoWorkspace.meetings.findIndex((item) => item.id === options.meeting.id);
+          if (index >= 0) demoWorkspace.meetings.splice(index, 1);
+        } else {
+          await deleteMeeting(options.meeting.id);
+        }
+        modal.remove();
+        await refresh();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    };
+  }
 
   form.onsubmit = async (event) => {
     event.preventDefault();
@@ -204,12 +266,19 @@ function openModal(type) {
           cost: Number(values.cost_ils || 0),
           currency: values.cost_currency || DEFAULT_DISPLAY_CURRENCY,
           status: values.status,
-          notes: values.notes || undefined,
+          notes: options.meeting ? (values.notes || '') : (values.notes || undefined),
         };
 
         if (demo) {
           const client = demoWorkspace.clients.find((item) => item.id === clientId);
-          demoWorkspace.meetings.push({ ...meetingPayload, id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
+          if (options.meeting) {
+            const savedMeeting = demoWorkspace.meetings.find((item) => item.id === options.meeting.id);
+            if (savedMeeting) Object.assign(savedMeeting, meetingPayload, { clients: { name: client?.name || 'Client' } });
+          } else {
+            demoWorkspace.meetings.push({ ...meetingPayload, id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
+          }
+        } else if (options.meeting) {
+          await updateMeeting(options.meeting.id, meetingPayload);
         } else {
           await createRecord('meeting', meetingPayload);
         }
