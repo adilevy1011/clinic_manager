@@ -5,6 +5,7 @@ export const sampleWorkspace = {
     { id: 'r2', title: 'Write session note', body: 'Capture the main themes while they are fresh.', recurrence: 'after_session', client_id: 'a', trigger_after_minutes: 30, clients: { name: 'Noa Levi' }, email: '' },
   ],
   payments: [],
+  meetingExceptions: [],
   clients: [
     { id: 'a', name: 'Noa Levi', default_fee: 420 },
     { id: 'b', name: 'Daniel Cohen', default_fee: 420 },

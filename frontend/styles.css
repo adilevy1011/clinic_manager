@@ -106,6 +106,14 @@
 .payment-delete:hover { color: #9e4436; }
 .payment-form { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
 .recurrence-box { margin-top: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: #fafbf8; }
+.recurrence-details { display: grid; gap: 8px; }
+.weekly-options, .monthly-options { display: grid; gap: 8px; }
+.weekday-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
+.weekday-option { border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); padding: 8px 10px; font: 600 13px inherit; cursor: pointer; }
+.weekday-option.selected { background: var(--ink); border-color: var(--ink); color: #fff; }
+.interval-input { display: flex; align-items: center; gap: 8px; }
+.interval-input input { max-width: 100px; }
+.interval-input span { color: var(--muted); font-size: 14px; }
 .checkbox-field { display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; }
 .checkbox-field input { width: 18px; height: 18px; accent-color: var(--ink); }
 .recurrence-until { margin-bottom: 0; }

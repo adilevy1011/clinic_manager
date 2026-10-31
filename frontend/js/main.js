@@ -39,7 +39,7 @@ async function refresh() {
     ? {
       ...demoWorkspace,
       clients: [...demoWorkspace.clients],
-      meetings: [...demoWorkspace.meetings],
+      meetings: expandDemoMeetings(month),
     }
     : await loadWorkspace(
       month,
@@ -50,6 +50,46 @@ async function refresh() {
 
   renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
   bindDashboard();
+}
+
+function expandDemoMeetings(monthValue) {
+  const windowStart = `${monthValue}-01`;
+  const windowEnd = shiftDate(`${shiftMonth(monthValue, 1)}-01`, -1);
+  const exceptions = demoWorkspace.meetingExceptions || [];
+  const output = demoWorkspace.meetings.filter((meeting) => !meeting.recurrence_rule && meeting.meeting_date >= windowStart && meeting.meeting_date <= windowEnd);
+
+  demoWorkspace.meetings.filter((meeting) => meeting.recurrence_rule).forEach((series) => {
+    const rule = series.recurrence_rule;
+    const endDate = series.recurrence_end_date || windowEnd;
+    const limit = endDate < windowEnd ? endDate : windowEnd;
+    let cursor = series.meeting_date > windowStart ? series.meeting_date : windowStart;
+    while (cursor <= limit) {
+      const date = new Date(`${cursor}T12:00:00`);
+      const start = new Date(`${series.meeting_date}T12:00:00`);
+      let matches = false;
+      if (rule.frequency === 'weekly') {
+        const monday = new Date(start);
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+        const currentMonday = new Date(date);
+        currentMonday.setDate(currentMonday.getDate() - ((currentMonday.getDay() + 6) % 7));
+        const weekNumber = Math.round((currentMonday - monday) / 86400000) / 7;
+        const weekday = (date.getDay() + 6) % 7;
+        matches = weekNumber % Number(rule.interval || 1) === 0 && (rule.weekdays || []).includes(weekday);
+      } else if (rule.frequency === 'monthly') {
+        matches = date.getDate() === Number(rule.day || start.getDate())
+          && ((date.getFullYear() - start.getFullYear()) * 12 + date.getMonth() - start.getMonth()) % Number(rule.interval || 1) === 0;
+      }
+      if (matches && cursor >= series.meeting_date) {
+        const exception = exceptions.find((item) => item.series_id === (series.series_id || series.id) && item.recurrence_occurrence_date === cursor);
+        if (!exception || exception.recurrence_exception_type !== 'cancelled') {
+          output.push(exception ? { ...exception, is_exception: true, source_meeting_id: series.id } : { ...series, id: `${series.series_id || series.id}:${cursor}`, meeting_date: cursor, recurrence_occurrence_date: cursor, source_meeting_id: series.id, is_virtual: true });
+        }
+      }
+      cursor = shiftDate(cursor, 1);
+    }
+  });
+
+  return output.sort((a, b) => `${a.meeting_date}${a.start_time}`.localeCompare(`${b.meeting_date}${b.start_time}`));
 }
 
 function bindDashboard() {
@@ -269,16 +309,6 @@ function setMoneyGroupAmount(group, amountIls, currency) {
     : (Number(amountIls) / exchangeRate).toFixed(2);
 }
 
-function weeklyOccurrences(startDate, endDate) {
-  const dates = [];
-  let date = startDate;
-  while (date <= endDate) {
-    dates.push(date);
-    date = shiftDate(date, 7);
-  }
-  return dates;
-}
-
 function formValues(form) {
   const values = Object.fromEntries(new FormData(form));
   form.querySelectorAll('[data-select]').forEach((select) => {
@@ -303,14 +333,35 @@ function openModal(type, options = {}) {
     const notesField = form.querySelector('[name="notes"]')?.closest('.form-field');
     const recurrenceBox = document.createElement('div');
     recurrenceBox.className = 'recurrence-box full-span';
-    recurrenceBox.innerHTML = `<label class="checkbox-field"><input name="repeat_weekly" type="checkbox"><span>Repeat weekly</span></label><div class="form-field recurrence-until" hidden><label>Repeat weekly until</label><input name="repeat_until" type="date" value="${form.querySelector('[name="meeting_date"]').value}"><small class="field-help">Each occurrence will be created as its own editable session.</small></div>`;
+    const meetingDate = form.querySelector('[name="meeting_date"]').value;
+    const weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const weekdayIndex = (new Date(`${meetingDate}T12:00:00`).getDay() + 6) % 7;
+    recurrenceBox.innerHTML = `<div class="form-field"><label>Repeats</label><div class="custom-select" data-select data-name="recurrence_frequency" data-value="none"><button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="select-label">Does not repeat</span><span class="select-chevron">⌄</span></button><div class="select-menu" role="listbox"><button type="button" role="option" class="select-option selected" data-option="none">Does not repeat</button><button type="button" role="option" class="select-option" data-option="weekly">Weekly</button><button type="button" role="option" class="select-option" data-option="monthly">Monthly</button></div></div></div><div class="recurrence-details" hidden><div class="weekly-options"><label>Repeat on</label><div class="weekday-toggle">${weekdayNames.map((name, index) => `<button type="button" class="weekday-option ${index === weekdayIndex ? 'selected' : ''}" data-weekday="${index}">${name.slice(0, 3)}</button>`).join('')}</div></div><div class="monthly-options" hidden><div class="form-field"><label>Day of month</label><input name="recurrence_day" type="number" min="1" max="31" value="${Number(meetingDate.slice(-2))}"></div><div class="form-field"><label>Every</label><div class="interval-input"><input name="recurrence_interval" type="number" min="1" max="12" value="1"><span>month(s)</span></div></div></div><div class="form-field"><label>End date <span class="field-help">(optional)</span></label><input name="recurrence_end_date" type="date" min="${meetingDate}"><small class="field-help">Leave empty to repeat indefinitely.</small></div></div>`;
     notesField?.after(recurrenceBox);
-    const repeatCheckbox = recurrenceBox.querySelector('[name="repeat_weekly"]');
-    const repeatUntil = recurrenceBox.querySelector('.recurrence-until');
-    repeatCheckbox.onchange = () => {
-      repeatUntil.hidden = !repeatCheckbox.checked;
-      repeatUntil.querySelector('input').required = repeatCheckbox.checked;
+    const updateRecurrenceVisibility = (frequency) => {
+      const details = recurrenceBox.querySelector('.recurrence-details');
+      details.hidden = frequency === 'none';
+      recurrenceBox.querySelector('.weekly-options').hidden = frequency !== 'weekly';
+      recurrenceBox.querySelector('.monthly-options').hidden = frequency !== 'monthly';
     };
+    bindCustomSelects(modal, (select, value) => {
+      if (select.dataset.name === 'recurrence_frequency') updateRecurrenceVisibility(value);
+    });
+    recurrenceBox.querySelectorAll('[data-weekday]').forEach((button) => {
+      button.onclick = () => {
+        button.classList.toggle('selected');
+        if (!recurrenceBox.querySelector('.weekday-option.selected')) button.classList.add('selected');
+      };
+    });
+  }
+
+  if (type === 'meeting' && options.meeting?.is_virtual) {
+    const notesField = form.querySelector('[name="notes"]')?.closest('.form-field');
+    const scopeBox = document.createElement('div');
+    scopeBox.className = 'form-field full-span';
+    scopeBox.innerHTML = `<label>Edit scope</label><div class="custom-select" data-select data-name="edit_scope" data-value="single"><button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="select-label">This session only</span><span class="select-chevron">⌄</span></button><div class="select-menu" role="listbox"><button type="button" role="option" class="select-option selected" data-option="single">This session only</button><button type="button" role="option" class="select-option" data-option="future">This and following sessions</button></div></div>`;
+    notesField?.after(scopeBox);
+    bindCustomSelects(modal, () => {});
   }
 
   const clientSelect = document.querySelector('#client-select');
@@ -322,8 +373,19 @@ function openModal(type, options = {}) {
       if (!window.confirm('Delete this session?')) return;
       try {
         if (demo) {
-          const index = demoWorkspace.meetings.findIndex((item) => item.id === options.meeting.id);
-          if (index >= 0) demoWorkspace.meetings.splice(index, 1);
+          if (options.meeting.is_virtual) {
+            demoWorkspace.meetingExceptions.push({
+              ...options.meeting,
+              id: crypto.randomUUID(),
+              series_id: options.meeting.series_id,
+              recurrence_occurrence_date: options.meeting.recurrence_occurrence_date,
+              recurrence_exception_type: 'cancelled',
+              status: 'cancelled',
+            });
+          } else {
+            const index = demoWorkspace.meetings.findIndex((item) => item.id === options.meeting.id);
+            if (index >= 0) demoWorkspace.meetings.splice(index, 1);
+          }
         } else {
           await deleteMeeting(options.meeting.id);
         }
@@ -375,10 +437,16 @@ function openModal(type, options = {}) {
             : Number(values.amount_paid_ils || 0),
           notes: options.meeting ? (values.notes || '') : (values.notes || undefined),
         };
-        const repeatWeekly = values.repeat_weekly === 'on';
-        const repeatUntil = values.repeat_until || values.meeting_date;
+        const recurrenceFrequency = values.recurrence_frequency || 'none';
+        const selectedWeekdays = [...form.querySelectorAll('.weekday-option.selected')].map((button) => Number(button.dataset.weekday));
+        const recurrenceRule = recurrenceFrequency === 'weekly'
+          ? { frequency: 'weekly', interval: 1, weekdays: selectedWeekdays }
+          : recurrenceFrequency === 'monthly'
+            ? { frequency: 'monthly', interval: Number(values.recurrence_interval || 1), day: Number(values.recurrence_day || values.meeting_date.slice(-2)) }
+            : undefined;
+        const recurrenceEndDate = values.recurrence_end_date || undefined;
 
-        if (repeatWeekly && values.repeat_until < values.meeting_date) {
+        if (recurrenceRule && recurrenceEndDate && recurrenceEndDate < values.meeting_date) {
           window.alert('The recurring end date must be on or after the first session.');
           return;
         }
@@ -386,20 +454,27 @@ function openModal(type, options = {}) {
         if (demo) {
           const client = demoWorkspace.clients.find((item) => item.id === clientId);
           if (options.meeting) {
-            const savedMeeting = demoWorkspace.meetings.find((item) => item.id === options.meeting.id);
-            if (savedMeeting) Object.assign(savedMeeting, meetingPayload, { clients: { name: client?.name || 'Client' } });
+            if (options.meeting.is_virtual) {
+              const series = demoWorkspace.meetings.find((item) => item.series_id === options.meeting.series_id && item.recurrence_rule);
+              const exceptionDate = options.meeting.recurrence_occurrence_date || options.meeting.meeting_date;
+              if (values.edit_scope === 'future' && series) {
+                const oldEndDate = series.recurrence_end_date;
+                series.recurrence_end_date = shiftDate(exceptionDate, -1);
+                demoWorkspace.meetings.push({ ...series, ...meetingPayload, id: crypto.randomUUID(), series_id: crypto.randomUUID(), meeting_date: meetingPayload.meeting_date, recurrence_end_date: oldEndDate, clients: { name: client?.name || 'Client' } });
+              } else {
+                demoWorkspace.meetingExceptions.push({ ...options.meeting, ...meetingPayload, id: crypto.randomUUID(), series_id: options.meeting.series_id, recurrence_occurrence_date: exceptionDate, recurrence_exception_type: 'override', clients: { name: client?.name || 'Client' } });
+              }
+            } else {
+              const savedMeeting = demoWorkspace.meetings.find((item) => item.id === options.meeting.id);
+              if (savedMeeting) Object.assign(savedMeeting, meetingPayload, { clients: { name: client?.name || 'Client' } });
+            }
           } else {
-            const meetingDates = repeatWeekly
-              ? weeklyOccurrences(values.meeting_date, repeatUntil)
-              : [values.meeting_date];
-            meetingDates.forEach((meetingDate) => {
-              demoWorkspace.meetings.push({ ...meetingPayload, meeting_date: meetingDate, id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
-            });
+            demoWorkspace.meetings.push({ ...meetingPayload, recurrence_rule: recurrenceRule, recurrence_end_date: recurrenceEndDate, series_id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
           }
         } else if (options.meeting) {
-          await updateMeeting(options.meeting.id, meetingPayload);
+          await updateMeeting(options.meeting.id, { ...meetingPayload, edit_scope: values.edit_scope || 'single' });
         } else {
-          await createRecord('meeting', { ...meetingPayload, repeat_weekly: repeatWeekly, repeat_until: repeatWeekly ? repeatUntil : undefined });
+          await createRecord('meeting', { ...meetingPayload, recurrence_rule: recurrenceRule, recurrence_end_date: recurrenceEndDate });
         }
       } else {
         const clientPayload = {

@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,6 +40,8 @@ class MeetingCreate(BaseModel):
     payment_status: Literal["unpaid", "partial", "paid"] = "unpaid"
     amount_paid: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
     notes: str | None = Field(default=None, max_length=1000)
+    recurrence_rule: dict[str, Any] | None = None
+    recurrence_end_date: date | None = None
     repeat_weekly: bool = False
     repeat_until: date | None = None
 
@@ -56,6 +58,9 @@ class MeetingUpdate(BaseModel):
     payment_status: Literal["unpaid", "partial", "paid"] | None = None
     amount_paid: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     notes: str | None = Field(default=None, max_length=1000)
+    recurrence_rule: dict[str, Any] | None = None
+    recurrence_end_date: date | None = None
+    edit_scope: Literal["single", "future"] = "single"
 
 
 class ReminderCreate(BaseModel):

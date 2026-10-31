@@ -13,6 +13,8 @@ The local page shows sample data when opened on port 3000. To exercise real logi
 
 The client payment ledger is added by the later `20261031055000_client_payments.sql` migration. On an existing Supabase project, run `supabase db push` after pulling this change; do not modify the already-applied initial migration.
 
+Recurring meeting series and exception rows are added by `20261031060000_meeting_recurrence_series.sql`. This migration adds the recurrence rule, end date, series, and exception metadata to meetings without changing the initial schema migration.
+
 ## DigitalOcean
 
 Copy `deploy/clinic-manager.service` to `/etc/systemd/system/` and `deploy/clinic-manager.nginx.conf` to `/etc/nginx/sites-available/clinic-manager`; update `/var/www/clinic-manager` if you deploy elsewhere. Put backend secrets in `/var/www/clinic-manager/backend/.env`, enable the service and Nginx site, then run Certbot after DNS is live.
