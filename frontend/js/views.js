@@ -171,6 +171,7 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
   const page = root.dataset.page || 'today';
   const pageTargets = { today: 'today-view', calendar: 'calendar-view', sessions: 'sessions-view', clients: 'clients-view', reminders: 'reminders-view' };
   root.querySelector('.intro')?.remove();
+  root.querySelector('.topbar .brand-mark')?.remove();
   const tabs = root.querySelector('.view-tabs');
   const topbar = root.querySelector('.topbar');
   const userActions = topbar.querySelector('.user-actions');
@@ -184,6 +185,7 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
   userActions.querySelector('#logout')?.remove();
   const activePanel = pageTargets[page];
   root.querySelectorAll('.view-panel').forEach((panel) => panel.classList.toggle('hidden', panel.id !== activePanel));
+  if (page !== 'today') root.querySelector('.summary-grid')?.remove();
   if (page === 'settings') root.querySelector('main').insertAdjacentHTML('beforeend', settingsPage(workspace.user));
 
 }
