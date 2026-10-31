@@ -71,7 +71,7 @@ async function refresh() {
         };
       }
     }
-    renderClientPage(client, exchangeRate, finance);
+    root.innerHTML = renderClientPage(client, exchangeRate, finance);
     bindClientPage(clientId);
     return;
   }
