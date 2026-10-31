@@ -1,5 +1,13 @@
 import { API_URL, DEMO_MODE } from './config.js';
 
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 export async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
@@ -12,10 +20,14 @@ export async function request(path, options = {}) {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || 'Something went wrong.');
+    throw new ApiError(body.detail || 'Something went wrong.', response.status);
   }
 
   return response.status === 204 ? null : response.json();
+}
+
+export async function getCurrentUser() {
+  return request('/me');
 }
 
 export async function login(email, password) {

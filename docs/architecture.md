@@ -29,8 +29,8 @@ The worker is separate from Uvicorn. A slow or unavailable email provider should
 
 ## Frontend pages
 
-`today.html` is the landing page. Other top-level pages are `calendar.html`, `sessions.html`, `clients.html`, `money.html`, `reminders.html`, and `settings.html`; `client.html` is the client detail page. `frontend/js/main.js` chooses behavior from the current page and `views.js` owns markup rendering.
+`index.html` is the authenticated landing page and `login.html` is the sign-in page. Other top-level pages are `calendar.html`, `sessions.html`, `clients.html`, `money.html`, `reminders.html`, and `settings.html`; `client.html` is the client detail page. `frontend/js/main.js` chooses behavior from the current page and `views.js` owns markup rendering.
 
 ## URL and proxy model
 
-Nginx serves `/calendar` from `calendar.html`, `/money` from `money.html`, and so on using `try_files`. `/api/` and `/health` are proxied to Uvicorn on port 8017. Keep the public domain and TLS configuration outside tracked source.
+Nginx serves `/calendar` from `calendar.html`, `/login` from `login.html`, `/money` from `money.html`, and so on using `try_files`; unknown frontend paths fall back to `/index.html`. `/api/` and `/health` are proxied to Uvicorn on port 8017. Keep the public domain and TLS configuration outside tracked source.

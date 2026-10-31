@@ -37,7 +37,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-The `try_files $uri $uri/ $uri.html /today.html;` rule removes `.html` from normal page URLs. The API remains under `/api/` and is proxied to `127.0.0.1:8017`.
+The `try_files $uri $uri/ $uri.html /index.html;` rule removes `.html` from normal page URLs and sends unknown frontend paths to the landing page. The API remains under `/api/` and is proxied to `127.0.0.1:8017`.
 
 ## Start services
 

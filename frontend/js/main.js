@@ -5,6 +5,7 @@ import {
   deleteReminder,
   deletePayment,
   deleteMeeting,
+  getCurrentUser,
   isDemo,
   loadWorkspace,
   loadClientFinance,
@@ -131,8 +132,7 @@ function bindDashboard() {
   if (logoutButton) {
     logoutButton.onclick = async () => {
       if (!demo) await logout();
-      renderLogin(root, { demo });
-      bindLogin();
+      window.location.href = '/login';
     };
   }
 
@@ -261,7 +261,7 @@ function bindLogin() {
 
     try {
       if (!demo) await login(values.email, values.password);
-      await refresh();
+      window.location.href = '/';
     } catch (error) {
       renderLogin(root, { demo, error: error.message });
       bindLogin();
@@ -873,11 +873,24 @@ function openReminderModal(reminder = null) {
 
 export async function boot() {
   try {
+    if (root.dataset.page === 'login') {
+      if (demo) {
+        window.location.replace('/');
+        return;
+      }
+      await getCurrentUser();
+      window.location.replace('/');
+      return;
+    }
     if (!localStorage.getItem('stillpoint-usd-ils-rate')) {
       exchangeRate = await getOfficialShekelRate();
     }
     await refresh();
   } catch (error) {
+    if (root.dataset.page !== 'login' && error.status === 401) {
+      window.location.replace('/login');
+      return;
+    }
     console.error('Clinic Manager boot failed:', error);
     renderLogin(root, { demo, error: error.message });
     bindLogin();
