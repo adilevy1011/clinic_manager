@@ -42,6 +42,16 @@
 .settings-account { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
 .settings-account .summary-label { grid-column: 1 / -1; margin: 0; }
 .settings-account strong { overflow-wrap: anywhere; }
+.client-heading { margin: 14px 0 24px; }
+.client-heading h1 { font: 600 clamp(38px, 6vw, 64px)/1.02 "Playfair Display", serif; letter-spacing: -.05em; margin: 8px 0 10px; }
+.client-heading p { color: var(--muted); margin: 0; }
+.back-link { display: inline-block; color: var(--muted); text-decoration: none; font-weight: 600; margin-bottom: 20px; }
+.back-link:hover { color: var(--ink); }
+.client-tabs { display: flex; gap: 6px; margin-bottom: 18px; padding: 5px; border: 1px solid var(--line); border-radius: 14px; background: #fafbf8; width: fit-content; }
+.client-tab { border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 14px inherit; padding: 10px 14px; cursor: pointer; }
+.client-tab:hover { color: var(--ink); }
+.client-tab.active { background: var(--ink); color: #fff; }
+.client-tab-panel.hidden { display: none; }
 .scope-dialog-backdrop { z-index: 6; }
 .scope-dialog { width: min(480px, 100%); }
 .scope-dialog-message { color: var(--muted); margin: 14px 0 20px; }
@@ -128,5 +138,6 @@
 .modal-backdrop { overflow-y: auto; align-items: start; }
 @media (max-width: 800px) { .topbar { align-items: flex-start; flex-wrap: wrap; } .top-nav { order: 3; width: 100%; justify-content: flex-start; } .top-nav-action { margin-left: 0; } }
 @media (max-width: 520px) { .top-nav-link { padding: 8px 9px; font-size: 13px; } .top-nav-action { width: 100%; } }
+@media (max-width: 600px) { .client-tabs { width: 100%; overflow-x: auto; } .client-tab { flex: 1 0 auto; white-space: nowrap; padding-inline: 10px; } }
 @media (max-width: 520px) { .today-summary { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .finance-summary { grid-template-columns: 1fr; } .payment-row { grid-template-columns: minmax(0, 1fr) auto; } .payment-row .payment-delete { grid-column: 2; grid-row: 1; } }

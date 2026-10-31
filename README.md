@@ -19,7 +19,7 @@ Recurring meeting series and exception rows are added by `20261031060000_meeting
 
 Copy `deploy/clinic-manager.service` to `/etc/systemd/system/` and `deploy/clinic-manager.nginx.conf` to `/etc/nginx/sites-available/clinic-manager`; update `/var/www/clinic-manager` if you deploy elsewhere. Put backend secrets in `/var/www/clinic-manager/backend/.env`, enable the service and Nginx site, then run Certbot after DNS is live.
 
-The included Nginx config serves the static frontend and proxies `/api` to Uvicorn on `127.0.0.1:8017`. It serves the separate `today.html`, `calendar.html`, `sessions.html`, `clients.html`, `reminders.html`, and `settings.html` pages at extensionless URLs such as `/calendar`. Replace the placeholder `server_name _;` in the server-only Nginx copy with your own domain. The browser never receives a Supabase key. Use the Supabase anon key only in the backend environment; never use the service-role key in frontend code.
+The included Nginx config serves the static frontend and proxies `/api` to Uvicorn on `127.0.0.1:8017`. It serves the separate `today.html`, `calendar.html`, `sessions.html`, `clients.html`, `client.html`, `reminders.html`, and `settings.html` pages at extensionless URLs such as `/calendar` and `/client?id=...`. Replace the placeholder `server_name _;` in the server-only Nginx copy with your own domain. The browser never receives a Supabase key. Use the Supabase anon key only in the backend environment; never use the service-role key in frontend code.
 
 To install the updated Nginx configuration on the droplet:
 
