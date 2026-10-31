@@ -8,7 +8,7 @@ import {
   updateClient,
   updateMeeting,
 } from './api.js';
-import { currentMonth, sampleWorkspace, shiftMonth } from './data.js';
+import { currentDate, currentMonth, sampleWorkspace, shiftDate, shiftMonth } from './data.js';
 import { DEFAULT_DISPLAY_CURRENCY, DEFAULT_USD_TO_ILS, getOfficialShekelRate } from './currency.js';
 import { renderClientProfile, renderDashboard, renderLogin, renderModal } from './views.js';
 
@@ -17,7 +17,7 @@ const demo = isDemo();
 let month = currentMonth();
 let workspace = null;
 let calendarMode = 'month';
-let focusDate = `${month}-01`;
+let focusDate = currentDate();
 const demoWorkspace = structuredClone(sampleWorkspace);
 let exchangeRate = Number(localStorage.getItem('stillpoint-usd-ils-rate')) || DEFAULT_USD_TO_ILS;
 
@@ -26,9 +26,14 @@ async function refresh() {
     ? {
       ...demoWorkspace,
       clients: [...demoWorkspace.clients],
-      meetings: demoWorkspace.meetings.filter((item) => item.meeting_date.startsWith(month)),
+      meetings: [...demoWorkspace.meetings],
     }
-    : await loadWorkspace(month);
+    : await loadWorkspace(
+      month,
+      calendarMode === 'week'
+        ? [shiftMonth(month, -1), shiftMonth(month, 1)]
+        : [],
+    );
 
   renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
   bindDashboard();
@@ -44,6 +49,7 @@ function bindDashboard() {
   bindCustomSelects(root, async (select, value) => {
     if (select.id === 'month-select') {
       month = value;
+      focusDate = `${month}-01`;
       await refresh();
     }
   });
@@ -64,6 +70,13 @@ function bindDashboard() {
       bindDashboard();
     };
   });
+
+  document.querySelector('#calendar-today').onclick = () => {
+    month = currentMonth();
+    focusDate = currentDate();
+    renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
+    bindDashboard();
+  };
 
   document.querySelectorAll('.calendar-day[data-calendar-date]').forEach((day) => {
     day.onclick = (event) => {
@@ -88,13 +101,11 @@ function bindDashboard() {
   });
 
   document.querySelector('#previous-month').onclick = async () => {
-    month = shiftMonth(month, -1);
-    focusDate = `${month}-01`;
+    navigateCalendar(-1);
     await refresh();
   };
   document.querySelector('#next-month').onclick = async () => {
-    month = shiftMonth(month, 1);
-    focusDate = `${month}-01`;
+    navigateCalendar(1);
     await refresh();
   };
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
@@ -102,6 +113,17 @@ function bindDashboard() {
   document.querySelectorAll('[data-client-id]').forEach((clientButton) => {
     clientButton.onclick = () => openClientProfile(clientButton.dataset.clientId);
   });
+}
+
+function navigateCalendar(direction) {
+  if (calendarMode === 'month') {
+    month = shiftMonth(month, direction);
+    focusDate = `${month}-01`;
+    return;
+  }
+
+  focusDate = shiftDate(focusDate, calendarMode === 'week' ? direction * 7 : direction);
+  month = focusDate.slice(0, 7);
 }
 
 function bindLogin() {

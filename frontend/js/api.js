@@ -29,12 +29,17 @@ export async function logout() {
   return request('/auth/logout', { method: 'POST' });
 }
 
-export async function loadWorkspace(month) {
-  const [me, meetings, clients] = await Promise.all([
+export async function loadWorkspace(month, additionalMonths = []) {
+  const months = [month, ...additionalMonths];
+  const [me, clients, ...meetingResponses] = await Promise.all([
     request('/me'),
-    request(`/meetings?month=${month}`),
     request('/clients'),
+    ...months.map((value) => request(`/meetings?month=${value}`)),
   ]);
+
+  const meetings = [...new Map(
+    meetingResponses.flat().map((meeting) => [meeting.id, meeting]),
+  ).values()];
 
   return { user: me.user, meetings, clients };
 }

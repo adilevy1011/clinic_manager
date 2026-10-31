@@ -39,6 +39,8 @@
 .tab-action { margin-left: auto; }
 .view-panel.hidden { display: none; }
 .calendar-modes { display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #fafbf8; }
+.calendar-toolbar { display: flex; align-items: center; gap: 8px; }
+.today-button { padding: 8px 12px; }
 .mode-button { border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: 600 13px inherit; padding: 8px 10px; cursor: pointer; }
 .mode-button.active { background: var(--ink); color: #fff; }
 .calendar-event { width: 100%; border: 0; text-align: left; cursor: pointer; }
@@ -57,7 +59,7 @@
 .day-event-time { font-size: 18px; font-weight: 700; }
 .day-event span:nth-child(2) { display: grid; gap: 3px; }
 .day-event small { color: var(--muted); font-size: 13px; }
-@media (max-width: 600px) { .calendar-panel .panel-header { align-items: flex-start; flex-direction: column; } .calendar-modes { width: 100%; } .mode-button { flex: 1; } .day-event { grid-template-columns: 60px 1fr; } .day-event .meeting-cost { grid-column: 2; } }
+@media (max-width: 600px) { .calendar-panel .panel-header { align-items: flex-start; flex-direction: column; } .calendar-toolbar { width: 100%; } .calendar-modes { flex: 1; } .mode-button { flex: 1; } .day-event { grid-template-columns: 60px 1fr; } .day-event .meeting-cost { grid-column: 2; } }
 .currency-memory { grid-column: 1 / -1; color: var(--muted); font-size: 12px; margin: -4px 0 8px; }
 .client-list { display: grid; gap: 10px; }
 .client-row { width: 100%; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px; border: 1px solid #edf0eb; border-radius: 14px; background: #fafbf8; color: var(--ink); padding: 15px; text-align: left; cursor: pointer; }
