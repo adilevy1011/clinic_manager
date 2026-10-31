@@ -1,4 +1,5 @@
 export const DEFAULT_USD_TO_ILS = 3.6;
+export const DEFAULT_DISPLAY_CURRENCY = 'USD';
 
 export async function getOfficialShekelRate() {
   try {

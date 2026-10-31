@@ -46,6 +46,13 @@ export async function createRecord(kind, payload) {
   });
 }
 
+export async function updateClient(clientId, payload) {
+  return request(`/clients/${clientId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function isDemo() {
   return DEMO_MODE;
 }

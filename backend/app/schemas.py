@@ -20,6 +20,16 @@ class ClientCreate(BaseModel):
     currency: Literal["ILS", "USD"] = "ILS"
 
 
+class ClientUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    email: str | None = None
+    default_fee: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+    currency: Literal["ILS", "USD"] | None = None
+    notes: str | None = Field(default=None, max_length=3000)
+
+
 class MeetingCreate(BaseModel):
     client_id: str
     meeting_date: date

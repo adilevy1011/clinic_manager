@@ -1,7 +1,7 @@
-import { createRecord, isDemo, loadWorkspace, login, logout } from './api.js';
+import { createRecord, isDemo, loadWorkspace, login, logout, updateClient } from './api.js';
 import { currentMonth, sampleWorkspace, shiftMonth } from './data.js';
-import { DEFAULT_USD_TO_ILS, getOfficialShekelRate } from './currency.js';
-import { renderDashboard, renderLogin, renderModal } from './views.js';
+import { DEFAULT_DISPLAY_CURRENCY, DEFAULT_USD_TO_ILS, getOfficialShekelRate } from './currency.js';
+import { renderClientProfile, renderDashboard, renderLogin, renderModal } from './views.js';
 
 const root = document.querySelector('#app');
 const demo = isDemo();
@@ -37,6 +37,15 @@ function bindDashboard() {
     }
   });
 
+  document.querySelectorAll('[data-tab]').forEach((tab) => {
+    tab.onclick = () => {
+      document.querySelectorAll('[data-tab]').forEach((item) => item.classList.remove('active'));
+      document.querySelectorAll('.view-panel').forEach((panel) => panel.classList.add('hidden'));
+      tab.classList.add('active');
+      document.querySelector(`#${tab.dataset.tab}`).classList.remove('hidden');
+    };
+  });
+
   document.querySelector('#previous-month').onclick = async () => {
     month = shiftMonth(month, -1);
     await refresh();
@@ -47,6 +56,9 @@ function bindDashboard() {
   };
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
   document.querySelector('#new-client').onclick = () => openModal('client');
+  document.querySelectorAll('[data-client-id]').forEach((clientButton) => {
+    clientButton.onclick = () => openClientProfile(clientButton.dataset.clientId);
+  });
 }
 
 function bindLogin() {
@@ -173,7 +185,7 @@ function openModal(type) {
             name: values.new_client_name,
             email: values.new_client_email || undefined,
             default_fee: Number(values.new_client_fee_ils || 0),
-            currency: values.new_client_fee_currency || 'ILS',
+            currency: values.new_client_fee_currency || DEFAULT_DISPLAY_CURRENCY,
           };
 
           if (demo) {
@@ -190,8 +202,9 @@ function openModal(type) {
           meeting_date: values.meeting_date,
           start_time: values.start_time,
           cost: Number(values.cost_ils || 0),
-          currency: values.cost_currency || 'ILS',
+          currency: values.cost_currency || DEFAULT_DISPLAY_CURRENCY,
           status: values.status,
+          notes: values.notes || undefined,
         };
 
         if (demo) {
@@ -205,11 +218,51 @@ function openModal(type) {
           name: values.name,
           email: values.email || undefined,
           default_fee: Number(values.default_fee_ils || 0),
-          currency: values.default_fee_currency || 'ILS',
+          currency: values.default_fee_currency || DEFAULT_DISPLAY_CURRENCY,
+          notes: values.notes || undefined,
         };
 
         if (demo) demoWorkspace.clients.push({ ...clientPayload, id: crypto.randomUUID() });
         else await createRecord('client', clientPayload);
+      }
+
+      modal.remove();
+      await refresh();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  };
+}
+
+function openClientProfile(clientId) {
+  const client = workspace.clients.find((item) => item.id === clientId);
+  if (!client) return;
+
+  document.body.insertAdjacentHTML('beforeend', renderClientProfile(client, exchangeRate));
+  const modal = document.querySelector('#client-profile-backdrop');
+  const form = document.querySelector('#client-profile-form');
+
+  document.querySelector('#close-client-profile').onclick = () => modal.remove();
+  bindMoneyInputs(modal);
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const values = formValues(form);
+    const payload = {
+      name: values.name,
+      email: values.email || '',
+      default_fee: Number(values.default_fee_ils || 0),
+      currency: values.default_fee_currency || DEFAULT_DISPLAY_CURRENCY,
+      notes: values.notes || '',
+    };
+
+    try {
+      if (demo) {
+        Object.assign(client, payload);
+        const savedClient = demoWorkspace.clients.find((item) => item.id === clientId);
+        if (savedClient) Object.assign(savedClient, payload);
+      } else {
+        await updateClient(clientId, payload);
       }
 
       modal.remove();
