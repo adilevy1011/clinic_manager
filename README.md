@@ -1,6 +1,6 @@
 # Stillpoint Clinic Manager
 
-Therapist-facing meeting and fee manager. The frontend talks only to FastAPI; Supabase Auth, Postgres/RLS, and Resend are server-side integrations.
+Therapist-facing meeting and fee manager. The frontend talks only to FastAPI; Supabase Auth, Postgres/RLS, and Resend are server-side integrations. Monetary amounts are stored canonically in ILS; each client and meeting also stores the last selected display/input currency (`ILS` or `USD`).
 
 ## Local run
 

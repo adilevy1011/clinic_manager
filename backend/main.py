@@ -5,10 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from .app.config import settings
-    from .app.routers import auth, clients, email, meetings, users
+    from .app.routers import auth, clients, email, meetings, rates, users
 except ImportError:
     from app.config import settings
-    from app.routers import auth, clients, email, meetings, users
+    from app.routers import auth, clients, email, meetings, rates, users
 
 
 def create_app() -> FastAPI:
@@ -27,6 +27,7 @@ def create_app() -> FastAPI:
     application.include_router(clients.router)
     application.include_router(meetings.router)
     application.include_router(email.router)
+    application.include_router(rates.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:
