@@ -19,7 +19,7 @@ This repository is a therapist-facing clinic manager. Keep the product focused o
 - Put shared request/response models in `backend/app/schemas.py` and shared configuration/database behavior in `backend/app/`.
 - Keep browser API calls in `frontend/js/api.js`, state/data helpers in `data.js`, formatting/currency in their dedicated modules, and page rendering in `views.js`/`main.js`.
 - Use separate HTML pages for top-level tabs. Keep page-specific DOM binding defensive so a page does not fail because another page's element is absent.
-- Use readable newlines and spacing. Prefer small named functions over large inline handlers.
+- Use proper spacing, indentation, and readable newlines throughout the codebase. Do not add minified or densely compressed tracked source; keep related declarations and statements visually separated so code is easy to scan and maintain. Prefer small named functions over large inline handlers.
 
 ## Recurrence and finance rules
 
