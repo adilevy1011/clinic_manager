@@ -269,6 +269,16 @@ function setMoneyGroupAmount(group, amountIls, currency) {
     : (Number(amountIls) / exchangeRate).toFixed(2);
 }
 
+function weeklyOccurrences(startDate, endDate) {
+  const dates = [];
+  let date = startDate;
+  while (date <= endDate) {
+    dates.push(date);
+    date = shiftDate(date, 7);
+  }
+  return dates;
+}
+
 function formValues(form) {
   const values = Object.fromEntries(new FormData(form));
   form.querySelectorAll('[data-select]').forEach((select) => {
@@ -288,6 +298,20 @@ function openModal(type, options = {}) {
   document.querySelector('#close-modal').onclick = () => modal.remove();
   bindCustomSelects(modal, () => {});
   bindMoneyInputs(modal);
+
+  if (type === 'meeting' && !options.meeting) {
+    const notesField = form.querySelector('[name="notes"]')?.closest('.form-field');
+    const recurrenceBox = document.createElement('div');
+    recurrenceBox.className = 'recurrence-box full-span';
+    recurrenceBox.innerHTML = `<label class="checkbox-field"><input name="repeat_weekly" type="checkbox"><span>Repeat weekly</span></label><div class="form-field recurrence-until" hidden><label>Repeat weekly until</label><input name="repeat_until" type="date" value="${form.querySelector('[name="meeting_date"]').value}"><small class="field-help">Each occurrence will be created as its own editable session.</small></div>`;
+    notesField?.after(recurrenceBox);
+    const repeatCheckbox = recurrenceBox.querySelector('[name="repeat_weekly"]');
+    const repeatUntil = recurrenceBox.querySelector('.recurrence-until');
+    repeatCheckbox.onchange = () => {
+      repeatUntil.hidden = !repeatCheckbox.checked;
+      repeatUntil.querySelector('input').required = repeatCheckbox.checked;
+    };
+  }
 
   const clientSelect = document.querySelector('#client-select');
   if (clientSelect?.dataset.value === '__new__') setNewClientVisibility(true);
@@ -351,6 +375,13 @@ function openModal(type, options = {}) {
             : Number(values.amount_paid_ils || 0),
           notes: options.meeting ? (values.notes || '') : (values.notes || undefined),
         };
+        const repeatWeekly = values.repeat_weekly === 'on';
+        const repeatUntil = values.repeat_until || values.meeting_date;
+
+        if (repeatWeekly && values.repeat_until < values.meeting_date) {
+          window.alert('The recurring end date must be on or after the first session.');
+          return;
+        }
 
         if (demo) {
           const client = demoWorkspace.clients.find((item) => item.id === clientId);
@@ -358,12 +389,17 @@ function openModal(type, options = {}) {
             const savedMeeting = demoWorkspace.meetings.find((item) => item.id === options.meeting.id);
             if (savedMeeting) Object.assign(savedMeeting, meetingPayload, { clients: { name: client?.name || 'Client' } });
           } else {
-            demoWorkspace.meetings.push({ ...meetingPayload, id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
+            const meetingDates = repeatWeekly
+              ? weeklyOccurrences(values.meeting_date, repeatUntil)
+              : [values.meeting_date];
+            meetingDates.forEach((meetingDate) => {
+              demoWorkspace.meetings.push({ ...meetingPayload, meeting_date: meetingDate, id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
+            });
           }
         } else if (options.meeting) {
           await updateMeeting(options.meeting.id, meetingPayload);
         } else {
-          await createRecord('meeting', meetingPayload);
+          await createRecord('meeting', { ...meetingPayload, repeat_weekly: repeatWeekly, repeat_until: repeatWeekly ? repeatUntil : undefined });
         }
       } else {
         const clientPayload = {

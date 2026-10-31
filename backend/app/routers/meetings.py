@@ -39,7 +39,27 @@ def list_meetings(
 @router.post("", status_code=201)
 def create_meeting(payload: MeetingCreate, context=Depends(current_user)) -> dict[str, Any]:
     db, user = context
-    return db.table("meetings").insert({**payload.model_dump(mode="json"), "therapist_id": user["id"]}).execute().data[0]
+    if payload.repeat_weekly and payload.repeat_until is None:
+        raise HTTPException(400, "Choose an end date for the recurring sessions.")
+    if payload.repeat_until and payload.repeat_until < payload.meeting_date:
+        raise HTTPException(400, "The recurring end date must be on or after the first session.")
+
+    row = payload.model_dump(mode="json")
+    row.pop("repeat_weekly", None)
+    row.pop("repeat_until", None)
+    rows = []
+    occurrence = payload.meeting_date
+    end_date = payload.repeat_until or payload.meeting_date
+    while occurrence <= end_date:
+        rows.append({**row, "meeting_date": occurrence.isoformat(), "therapist_id": user["id"]})
+        if not payload.repeat_weekly:
+            break
+        occurrence = date.fromordinal(occurrence.toordinal() + 7)
+
+    if len(rows) > 53:
+        raise HTTPException(400, "Recurring sessions can span at most one year.")
+    created = db.table("meetings").insert(rows).execute().data or []
+    return created[0]
 
 
 @router.patch("/{meeting_id}")

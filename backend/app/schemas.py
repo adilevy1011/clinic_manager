@@ -40,6 +40,8 @@ class MeetingCreate(BaseModel):
     payment_status: Literal["unpaid", "partial", "paid"] = "unpaid"
     amount_paid: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
     notes: str | None = Field(default=None, max_length=1000)
+    repeat_weekly: bool = False
+    repeat_until: date | None = None
 
 
 class MeetingUpdate(BaseModel):
