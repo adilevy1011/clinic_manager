@@ -109,14 +109,6 @@ function bindDashboard() {
     };
   });
 
-  document.querySelector('#previous-month').onclick = async () => {
-    navigateCalendar(-1);
-    await refresh();
-  };
-  document.querySelector('#next-month').onclick = async () => {
-    navigateCalendar(1);
-    await refresh();
-  };
   document.querySelector('#calendar-previous').onclick = async () => {
     navigateCalendar(-1);
     await refresh();
