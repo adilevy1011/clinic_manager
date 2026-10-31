@@ -60,7 +60,7 @@ class MeetingUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
     recurrence_rule: dict[str, Any] | None = None
     recurrence_end_date: date | None = None
-    edit_scope: Literal["single", "future"] = "single"
+    edit_scope: Literal["single", "all", "future"] = "single"
 
 
 class ReminderCreate(BaseModel):

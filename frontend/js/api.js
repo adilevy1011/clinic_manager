@@ -73,8 +73,8 @@ export async function updateMeeting(meetingId, payload) {
   });
 }
 
-export async function deleteMeeting(meetingId) {
-  return request(`/meetings/${meetingId}`, { method: 'DELETE' });
+export async function deleteMeeting(meetingId, scope = 'single') {
+  return request(`/meetings/${meetingId}?scope=${scope}`, { method: 'DELETE' });
 }
 
 export async function createReminder(payload) {

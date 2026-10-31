@@ -359,7 +359,7 @@ function openModal(type, options = {}) {
     const notesField = form.querySelector('[name="notes"]')?.closest('.form-field');
     const scopeBox = document.createElement('div');
     scopeBox.className = 'form-field full-span';
-    scopeBox.innerHTML = `<label>Edit scope</label><div class="custom-select" data-select data-name="edit_scope" data-value="single"><button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="select-label">This session only</span><span class="select-chevron">⌄</span></button><div class="select-menu" role="listbox"><button type="button" role="option" class="select-option selected" data-option="single">This session only</button><button type="button" role="option" class="select-option" data-option="future">This and following sessions</button></div></div>`;
+    scopeBox.innerHTML = `<label>Edit scope</label><div class="custom-select" data-select data-name="edit_scope" data-value="single"><button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="select-label">This session only</span><span class="select-chevron">⌄</span></button><div class="select-menu" role="listbox"><button type="button" role="option" class="select-option selected" data-option="single">This session only</button><button type="button" role="option" class="select-option" data-option="all">Entire sequence</button><button type="button" role="option" class="select-option" data-option="future">This and following sessions</button></div></div>`;
     notesField?.after(scopeBox);
     bindCustomSelects(modal, () => {});
   }
@@ -370,10 +370,17 @@ function openModal(type, options = {}) {
   const deleteButton = document.querySelector('#delete-meeting');
   if (deleteButton && options.meeting) {
     deleteButton.onclick = async () => {
-      if (!window.confirm('Delete this session?')) return;
+      let deleteScope = 'single';
+      if (options.meeting.is_virtual) {
+        const answer = window.prompt('Delete this recurring session? Type: single, future, or all.', 'single')?.trim().toLowerCase();
+        if (!answer || !['single', 'future', 'all'].includes(answer)) return;
+        deleteScope = answer;
+      } else if (!window.confirm('Delete this session?')) {
+        return;
+      }
       try {
         if (demo) {
-          if (options.meeting.is_virtual) {
+          if (options.meeting.is_virtual && deleteScope === 'single') {
             demoWorkspace.meetingExceptions.push({
               ...options.meeting,
               id: crypto.randomUUID(),
@@ -382,12 +389,18 @@ function openModal(type, options = {}) {
               recurrence_exception_type: 'cancelled',
               status: 'cancelled',
             });
+          } else if (options.meeting.is_virtual && deleteScope === 'future') {
+            const series = demoWorkspace.meetings.find((item) => item.series_id === options.meeting.series_id && item.recurrence_rule);
+            if (series) series.recurrence_end_date = shiftDate(options.meeting.recurrence_occurrence_date, -1);
+          } else if (options.meeting.is_virtual && deleteScope === 'all') {
+            demoWorkspace.meetings = demoWorkspace.meetings.filter((item) => item.series_id !== options.meeting.series_id);
+            demoWorkspace.meetingExceptions = demoWorkspace.meetingExceptions.filter((item) => item.series_id !== options.meeting.series_id);
           } else {
             const index = demoWorkspace.meetings.findIndex((item) => item.id === options.meeting.id);
             if (index >= 0) demoWorkspace.meetings.splice(index, 1);
           }
         } else {
-          await deleteMeeting(options.meeting.id);
+          await deleteMeeting(options.meeting.id, deleteScope);
         }
         modal.remove();
         await refresh();
@@ -457,7 +470,9 @@ function openModal(type, options = {}) {
             if (options.meeting.is_virtual) {
               const series = demoWorkspace.meetings.find((item) => item.series_id === options.meeting.series_id && item.recurrence_rule);
               const exceptionDate = options.meeting.recurrence_occurrence_date || options.meeting.meeting_date;
-              if (values.edit_scope === 'future' && series) {
+              if (values.edit_scope === 'all' && series) {
+                Object.assign(series, meetingPayload, { clients: { name: client?.name || 'Client' } });
+              } else if (values.edit_scope === 'future' && series) {
                 const oldEndDate = series.recurrence_end_date;
                 series.recurrence_end_date = shiftDate(exceptionDate, -1);
                 demoWorkspace.meetings.push({ ...series, ...meetingPayload, id: crypto.randomUUID(), series_id: crypto.randomUUID(), meeting_date: meetingPayload.meeting_date, recurrence_end_date: oldEndDate, clients: { name: client?.name || 'Client' } });

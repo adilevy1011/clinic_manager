@@ -2,7 +2,7 @@
 
 from datetime import date, timedelta
 from calendar import monthrange
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -150,6 +150,10 @@ def update_meeting(meeting_id: str, payload: MeetingUpdate, context=Depends(curr
             raise HTTPException(404, "Recurring session not found.")
         updates = {key: value for key, value in payload.model_dump(mode="json").items() if value is not None and key != "edit_scope"}
         edit_scope = payload.edit_scope
+        if edit_scope == "all":
+            updates.pop("meeting_date", None)
+            result = db.table("meetings").update(updates).eq("id", source["id"]).execute()
+            return result.data[0]
         if edit_scope == "future":
             old_end = source.get("recurrence_end_date")
             previous_end = occurrence - timedelta(days=1)
@@ -181,7 +185,11 @@ def update_meeting(meeting_id: str, payload: MeetingUpdate, context=Depends(curr
 
 
 @router.delete("/{meeting_id}", status_code=204)
-def delete_meeting(meeting_id: str, context=Depends(current_user)) -> None:
+def delete_meeting(
+    meeting_id: str,
+    scope: Literal["single", "future", "all"] = Query(default="single"),
+    context=Depends(current_user),
+) -> None:
     db, user = context
     if is_virtual_id(meeting_id):
         series_id, occurrence_value = meeting_id.split(":", 1)
@@ -190,12 +198,28 @@ def delete_meeting(meeting_id: str, context=Depends(current_user)) -> None:
         source = next((row for row in source if row.get("recurrence_rule")), None)
         if not source:
             raise HTTPException(404, "Recurring session not found.")
+        if scope == "all":
+            db.table("meetings").delete().eq("series_id", source["series_id"]).execute()
+            db.table("meetings").delete().eq("id", source["id"]).execute()
+            return
+        if scope == "future":
+            if occurrence <= date.fromisoformat(source["meeting_date"]):
+                db.table("meetings").delete().eq("series_id", source["series_id"]).execute()
+                db.table("meetings").delete().eq("id", source["id"]).execute()
+            else:
+                db.table("meetings").update({"recurrence_end_date": (occurrence - timedelta(days=1)).isoformat()}).eq("id", source["id"]).execute()
+            return
         exception = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
         exception.update({"series_id": source["series_id"], "meeting_date": occurrence.isoformat(), "recurrence_occurrence_date": occurrence.isoformat(), "recurrence_exception_type": "cancelled", "status": "cancelled"})
         db.table("meetings").insert(exception).execute()
         return
     existing_rows = db.table("meetings").select("*").eq("id", meeting_id).eq("therapist_id", user["id"]).execute().data or []
     existing = existing_rows[0] if existing_rows else None
+    if existing and existing.get("recurrence_rule") and scope in {"all", "future"}:
+        if scope == "all":
+            db.table("meetings").delete().eq("series_id", existing["series_id"]).execute()
+            db.table("meetings").delete().eq("id", meeting_id).execute()
+        return
     if existing and existing.get("recurrence_exception_type"):
         db.table("meetings").update({
             "status": "cancelled",
