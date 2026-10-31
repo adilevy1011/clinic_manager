@@ -99,6 +99,10 @@ export async function loadClientFinance(clientId, month) {
   return request(`/clients/${clientId}/finance?month=${month}`);
 }
 
+export async function loadMoneyManagement(month) {
+  return request(`/finance/clients?month=${month}`);
+}
+
 export async function createPayment(clientId, payload) {
   return request(`/clients/${clientId}/payments`, {
     method: 'POST',

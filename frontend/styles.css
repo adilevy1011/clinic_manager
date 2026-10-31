@@ -52,6 +52,17 @@
 .client-tab:hover { color: var(--ink); }
 .client-tab.active { background: var(--ink); color: #fff; }
 .client-tab-panel.hidden { display: none; }
+.client-month-controls, .money-month-controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 18px; }
+.client-month-controls strong, .money-month-controls strong { min-width: 150px; text-align: center; }
+.money-panel { overflow-x: auto; }
+.money-client-list { display: grid; gap: 8px; min-width: 720px; }
+.money-client-row { width: 100%; display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(4, minmax(100px, .7fr)) 28px; align-items: center; gap: 14px; border: 1px solid #edf0eb; border-radius: 14px; background: #fafbf8; color: var(--ink); padding: 14px; text-align: left; cursor: pointer; }
+.money-client-row:hover { border-color: #b7cbc1; background: #f3f8f2; }
+.money-client-row > span { display: grid; gap: 3px; }
+.money-client-row > span:first-child { min-width: 0; }
+.money-client-row small { color: var(--muted); font-size: 12px; }
+.money-client-row > span:first-child small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.money-owed strong { color: #9e4436; }
 .scope-dialog-backdrop { z-index: 6; }
 .scope-dialog { width: min(480px, 100%); }
 .scope-dialog-message { color: var(--muted); margin: 14px 0 20px; }

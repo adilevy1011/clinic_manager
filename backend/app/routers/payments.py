@@ -60,7 +60,8 @@ def client_finance(
     meetings = month_meetings(all_meetings, month)
     payments = db.table("payments").select("*").eq("client_id", client_id).order("payment_date").execute().data or []
     month_start, month_end = date_range(month)
-    charged = sum((numeric(meeting.get("cost")) for meeting in meetings if meeting.get("status") != "cancelled"), Decimal("0"))
+    charged = sum((numeric(meeting.get("cost")) for meeting in meetings if meeting.get("status") == "completed"), Decimal("0"))
+    anticipated = sum((numeric(meeting.get("cost")) for meeting in meetings if meeting.get("status") == "scheduled"), Decimal("0"))
     paid = sum((numeric(payment.get("amount")) for payment in payments if month_start <= date.fromisoformat(payment["payment_date"]) <= month_end), Decimal("0"))
     owed = max(charged - paid, Decimal("0"))
     paid_by_meeting: dict[str, Decimal] = {}
@@ -75,9 +76,10 @@ def client_finance(
             "start_time": meeting["start_time"],
             "status": meeting["status"],
             "currency": meeting.get("currency", "USD"),
-            "charged": numeric(meeting.get("cost")),
+            "charged": numeric(meeting.get("cost")) if meeting.get("status") == "completed" else Decimal("0"),
+            "anticipated": numeric(meeting.get("cost")) if meeting.get("status") == "scheduled" else Decimal("0"),
             "paid": paid_by_meeting.get(meeting["id"], Decimal("0")),
-            "owed": max(numeric(meeting.get("cost")) - paid_by_meeting.get(meeting["id"], Decimal("0")), Decimal("0")),
+            "owed": max(numeric(meeting.get("cost")) - paid_by_meeting.get(meeting["id"], Decimal("0")), Decimal("0")) if meeting.get("status") == "completed" else Decimal("0"),
         }
         for meeting in meetings
     ]
@@ -86,7 +88,7 @@ def client_finance(
         "meetings": meetings,
         "meeting_balances": meeting_balances,
         "payments": payments,
-        "totals": {"charged": charged, "paid": paid, "owed": owed},
+        "totals": {"charged": charged, "paid": paid, "owed": owed, "anticipated": anticipated},
     }
 
 

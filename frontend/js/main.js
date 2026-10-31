@@ -8,6 +8,7 @@ import {
   isDemo,
   loadWorkspace,
   loadClientFinance,
+  loadMoneyManagement,
   login,
   logout,
   updateProfile,
@@ -22,6 +23,7 @@ import {
   renderClientPage,
   renderDashboard,
   renderLogin,
+  renderMoneyManagement,
   renderModal,
   renderReminderModal,
 } from './views.js';
@@ -56,7 +58,7 @@ async function refresh() {
       window.location.href = '/clients';
       return;
     }
-    let finance = demo ? demoClientFinance(clientId) : null;
+    let finance = demo ? demoClientFinance(clientId, month) : null;
     if (!demo) {
       try {
         finance = await loadClientFinance(clientId, month);
@@ -71,9 +73,13 @@ async function refresh() {
         };
       }
     }
-    root.innerHTML = renderClientPage(client, exchangeRate, finance);
+    root.innerHTML = renderClientPage(client, exchangeRate, finance, month);
     bindClientPage(clientId);
     return;
+  }
+
+  if (root.dataset.page === 'money') {
+    workspace.money = demo ? demoMoneyManagement(month) : await loadMoneyManagement(month);
   }
 
   renderDashboard(root, workspace, month, exchangeRate, calendarMode, focusDate);
@@ -211,6 +217,15 @@ function bindDashboard() {
     navigateCalendar(1);
     await refresh();
   };
+  const moneyPrevious = document.querySelector('#money-previous');
+  const moneyNext = document.querySelector('#money-next');
+  if (moneyPrevious) moneyPrevious.onclick = async () => { month = shiftMonth(month, -1); await refresh(); };
+  if (moneyNext) moneyNext.onclick = async () => { month = shiftMonth(month, 1); await refresh(); };
+  document.querySelectorAll('[data-money-client-id]').forEach((clientButton) => {
+    clientButton.onclick = () => {
+      window.location.href = `/client?id=${encodeURIComponent(clientButton.dataset.moneyClientId)}`;
+    };
+  });
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
   document.querySelector('#new-today-meeting').onclick = () => openModal('meeting', { date: currentDate() });
   document.querySelector('#new-client').onclick = () => openModal('client');
@@ -574,6 +589,11 @@ function openModal(type, options = {}) {
 }
 
 function bindClientPage(clientId) {
+  const clientPrevious = root.querySelector('#client-month-previous');
+  const clientNext = root.querySelector('#client-month-next');
+  if (clientPrevious) clientPrevious.onclick = async () => { month = shiftMonth(month, -1); await refresh(); };
+  if (clientNext) clientNext.onclick = async () => { month = shiftMonth(month, 1); await refresh(); };
+
   root.querySelectorAll('[data-client-tab]').forEach((tab) => {
     tab.onclick = () => {
       root.querySelectorAll('[data-client-tab]').forEach((item) => item.classList.remove('active'));
@@ -742,7 +762,7 @@ async function openClientProfile(clientId) {
 function demoClientFinance(clientId, reportMonth = month) {
   const meetings = (workspace?.meetings || []).filter((meeting) => meeting.client_id === clientId);
   const payments = demoWorkspace.payments.filter((payment) => payment.client_id === clientId);
-  const charged = meetings.filter((meeting) => meeting.status !== 'cancelled').reduce((sum, meeting) => sum + Number(meeting.cost || 0), 0);
+  const charged = meetings.filter((meeting) => meeting.status === 'completed').reduce((sum, meeting) => sum + Number(meeting.cost || 0), 0);
   const paid = payments.filter((payment) => payment.payment_date?.startsWith(reportMonth)).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const meetingBalances = meetings.map((meeting) => {
     const meetingPaid = payments
@@ -754,12 +774,30 @@ function demoClientFinance(clientId, reportMonth = month) {
       start_time: meeting.start_time,
       status: meeting.status,
       currency: meeting.currency || DEFAULT_DISPLAY_CURRENCY,
-      charged: Number(meeting.cost || 0),
+      charged: meeting.status === 'completed' ? Number(meeting.cost || 0) : 0,
+      anticipated: meeting.status === 'scheduled' ? Number(meeting.cost || 0) : 0,
       paid: meetingPaid,
-      owed: Math.max(Number(meeting.cost || 0) - meetingPaid, 0),
+      owed: meeting.status === 'completed' ? Math.max(Number(meeting.cost || 0) - meetingPaid, 0) : 0,
     };
   });
-  return { meetings, meeting_balances: meetingBalances, payments, totals: { charged, paid, owed: Math.max(charged - paid, 0) } };
+  const anticipated = meetings.filter((meeting) => meeting.status === 'scheduled').reduce((sum, meeting) => sum + Number(meeting.cost || 0), 0);
+  return { meetings, meeting_balances: meetingBalances, payments, totals: { charged, paid, owed: Math.max(charged - paid, 0), anticipated } };
+}
+
+function demoMoneyManagement(reportMonth) {
+  return {
+    month: reportMonth,
+    clients: demoWorkspace.clients.map((client) => {
+      const finance = demoClientFinance(client.id, reportMonth);
+      return {
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        currency: client.currency || DEFAULT_DISPLAY_CURRENCY,
+        ...finance.totals,
+      };
+    }),
+  };
 }
 
 function openReminderModal(reminder = null) {
