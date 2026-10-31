@@ -59,7 +59,7 @@ async function refresh() {
     let finance = demo ? demoClientFinance(clientId) : null;
     if (!demo) {
       try {
-        finance = await loadClientFinance(clientId);
+        finance = await loadClientFinance(clientId, month);
       } catch (error) {
         console.error('Client finance failed to load:', error);
         finance = {
@@ -659,7 +659,7 @@ async function openClientProfile(clientId) {
   const client = workspace.clients.find((item) => item.id === clientId);
   if (!client) return;
 
-  const finance = demo ? demoClientFinance(clientId) : await loadClientFinance(clientId);
+    const finance = demo ? demoClientFinance(clientId, month) : await loadClientFinance(clientId, month);
   document.body.insertAdjacentHTML('beforeend', renderClientFinanceProfile(client, exchangeRate, finance));
   const modal = document.querySelector('#client-profile-backdrop');
   const form = document.querySelector('#client-profile-form');
@@ -739,11 +739,11 @@ async function openClientProfile(clientId) {
   };
 }
 
-function demoClientFinance(clientId) {
-  const meetings = demoWorkspace.meetings.filter((meeting) => meeting.client_id === clientId);
+function demoClientFinance(clientId, reportMonth = month) {
+  const meetings = (workspace?.meetings || []).filter((meeting) => meeting.client_id === clientId);
   const payments = demoWorkspace.payments.filter((payment) => payment.client_id === clientId);
   const charged = meetings.filter((meeting) => meeting.status !== 'cancelled').reduce((sum, meeting) => sum + Number(meeting.cost || 0), 0);
-  const paid = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const paid = payments.filter((payment) => payment.payment_date?.startsWith(reportMonth)).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const meetingBalances = meetings.map((meeting) => {
     const meetingPaid = payments
       .filter((payment) => payment.meeting_id === meeting.id)

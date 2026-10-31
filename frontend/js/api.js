@@ -95,8 +95,8 @@ export async function deleteReminder(reminderId) {
   return request(`/reminders/${reminderId}`, { method: 'DELETE' });
 }
 
-export async function loadClientFinance(clientId) {
-  return request(`/clients/${clientId}/finance`);
+export async function loadClientFinance(clientId, month) {
+  return request(`/clients/${clientId}/finance?month=${month}`);
 }
 
 export async function createPayment(clientId, payload) {
