@@ -191,7 +191,8 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
 }
 
 function moneyFields(prefix, value = '', required = true, currency = DEFAULT_DISPLAY_CURRENCY, alternateValue = '') {
-  return `<div class="money-fields full-span" data-money-group data-prefix="${prefix}" data-currency="${currency}"><div class="form-field"><label>Fee in shekels (₪)</label><input name="${prefix}_ils" type="number" min="0" step="0.01" value="${value}" inputmode="decimal" ${required ? 'required' : ''}></div><div class="form-field"><label>Fee in dollars ($)</label><input name="${prefix}_usd" type="number" min="0" step="0.01" value="${alternateValue}" inputmode="decimal"></div><div class="currency-memory">This record remembers the last currency you use.</div></div>`;
+  const label = prefix === 'amount_paid' ? 'Amount paid' : prefix === 'payment_amount' ? 'Payment amount' : 'Fee';
+  return `<div class="money-fields full-span" data-money-group data-prefix="${prefix}" data-currency="${currency}"><div class="form-field"><label>${label} in shekels (₪)</label><input name="${prefix}_ils" type="number" min="0" step="0.01" value="${value}" inputmode="decimal" ${required ? 'required' : ''}></div><div class="form-field"><label>${label} in dollars ($)</label><input name="${prefix}_usd" type="number" min="0" step="0.01" value="${alternateValue}" inputmode="decimal"></div><div class="currency-memory">This record remembers the last currency you use.</div></div>`;
 }
 
 export function renderModal(type, clients, rate = DEFAULT_USD_TO_ILS, existingMeeting = null, initialDate = null) {

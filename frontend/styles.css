@@ -107,6 +107,7 @@
 .payment-form { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
 .recurrence-box { margin-top: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: #fafbf8; }
 .recurrence-details { display: grid; gap: 8px; }
+.recurrence-details[hidden], .weekly-options[hidden], .monthly-options[hidden] { display: none; }
 .weekly-options, .monthly-options { display: grid; gap: 8px; }
 .weekday-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
 .weekday-option { border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); padding: 8px 10px; font: 600 13px inherit; cursor: pointer; }
