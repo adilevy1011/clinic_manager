@@ -45,6 +45,13 @@ export async function loadWorkspace(month, additionalMonths = []) {
   return { user: me.user, meetings, clients, reminders };
 }
 
+export async function updateProfile(payload) {
+  return request('/me', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createRecord(kind, payload) {
   return request(kind === 'meeting' ? '/meetings' : '/clients', {
     method: 'POST',
@@ -86,6 +93,23 @@ export async function updateReminder(reminderId, payload) {
 
 export async function deleteReminder(reminderId) {
   return request(`/reminders/${reminderId}`, { method: 'DELETE' });
+}
+
+export async function loadClientFinance(clientId) {
+  return request(`/clients/${clientId}/finance`);
+}
+
+export async function createPayment(clientId, payload) {
+  return request(`/clients/${clientId}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePayment(clientId, paymentId) {
+  return request(`/clients/${clientId}/payments/${paymentId}`, {
+    method: 'DELETE',
+  });
 }
 
 export function isDemo() {

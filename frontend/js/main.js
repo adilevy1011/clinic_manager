@@ -1,12 +1,16 @@
 import {
   createRecord,
   createReminder,
+  createPayment,
   deleteReminder,
+  deletePayment,
   deleteMeeting,
   isDemo,
   loadWorkspace,
+  loadClientFinance,
   login,
   logout,
+  updateProfile,
   updateClient,
   updateMeeting,
   updateReminder,
@@ -14,7 +18,7 @@ import {
 import { currentDate, currentMonth, sampleWorkspace, shiftDate, shiftMonth } from './data.js';
 import { DEFAULT_DISPLAY_CURRENCY, DEFAULT_USD_TO_ILS, getOfficialShekelRate } from './currency.js';
 import {
-  renderClientProfile,
+  renderClientFinanceProfile,
   renderDashboard,
   renderLogin,
   renderModal,
@@ -49,11 +53,33 @@ async function refresh() {
 }
 
 function bindDashboard() {
-  document.querySelector('#logout').onclick = async () => {
-    if (!demo) await logout();
-    renderLogin(root, { demo });
-    bindLogin();
-  };
+  const logoutButton = document.querySelector('#logout');
+  if (logoutButton) {
+    logoutButton.onclick = async () => {
+      if (!demo) await logout();
+      renderLogin(root, { demo });
+      bindLogin();
+    };
+  }
+
+  const settingsForm = document.querySelector('#settings-form');
+  if (settingsForm) {
+    settingsForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(settingsForm));
+      try {
+        if (demo) {
+          demoWorkspace.user.email = values.email;
+          demoWorkspace.user.reminder_email = values.email;
+        } else {
+          await updateProfile({ email: values.email });
+        }
+        await refresh();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    };
+  }
 
   bindCustomSelects(root, async (select, value) => {
     if (select.id === 'month-select') {
@@ -186,7 +212,11 @@ function bindCustomSelects(scope, onChange) {
           setNewClientVisibility(value === '__new__');
           const selectedClient = workspace.clients.find((client) => client.id === value);
           const moneyGroup = document.querySelector('[data-prefix="cost"]');
-          if (moneyGroup) moneyGroup.dataset.currency = selectedClient?.currency || 'ILS';
+          if (moneyGroup) {
+            const currency = selectedClient?.currency || DEFAULT_DISPLAY_CURRENCY;
+            moneyGroup.dataset.currency = currency;
+            setMoneyGroupAmount(moneyGroup, selectedClient?.default_fee || '', currency);
+          }
         }
         await onChange?.(select, value);
       };
@@ -227,6 +257,16 @@ function bindMoneyInputs(scope) {
       bindMoneyInputs(scope);
     };
   }
+}
+
+function setMoneyGroupAmount(group, amountIls, currency) {
+  const prefix = group.dataset.prefix;
+  const ilsInput = group.querySelector(`[name="${prefix}_ils"]`);
+  const usdInput = group.querySelector(`[name="${prefix}_usd"]`);
+  ilsInput.value = amountIls === '' ? '' : Number(amountIls).toFixed(2);
+  usdInput.value = amountIls === '' || currency !== 'USD'
+    ? ''
+    : (Number(amountIls) / exchangeRate).toFixed(2);
 }
 
 function formValues(form) {
@@ -346,16 +386,32 @@ function openModal(type, options = {}) {
   };
 }
 
-function openClientProfile(clientId) {
+async function openClientProfile(clientId) {
   const client = workspace.clients.find((item) => item.id === clientId);
   if (!client) return;
 
-  document.body.insertAdjacentHTML('beforeend', renderClientProfile(client, exchangeRate));
+  const finance = demo ? demoClientFinance(clientId) : await loadClientFinance(clientId);
+  document.body.insertAdjacentHTML('beforeend', renderClientFinanceProfile(client, exchangeRate, finance));
   const modal = document.querySelector('#client-profile-backdrop');
   const form = document.querySelector('#client-profile-form');
 
   document.querySelector('#close-client-profile').onclick = () => modal.remove();
+  bindCustomSelects(modal, () => {});
   bindMoneyInputs(modal);
+
+  document.querySelectorAll('[data-payment-id]').forEach((button) => {
+    button.onclick = async () => {
+      if (!window.confirm('Delete this payment entry?')) return;
+      if (demo) {
+        const index = demoWorkspace.payments.findIndex((payment) => payment.id === button.dataset.paymentId);
+        if (index >= 0) demoWorkspace.payments.splice(index, 1);
+      } else {
+        await deletePayment(clientId, button.dataset.paymentId);
+      }
+      modal.remove();
+      await openClientProfile(clientId);
+    };
+  });
 
   form.onsubmit = async (event) => {
     event.preventDefault();
@@ -383,10 +439,62 @@ function openClientProfile(clientId) {
       window.alert(error.message);
     }
   };
+
+  const paymentForm = document.querySelector('#payment-form');
+  paymentForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const values = formValues(paymentForm);
+    const payload = {
+      amount: Number(values.payment_amount_ils || 0),
+      currency: values.payment_amount_currency || DEFAULT_DISPLAY_CURRENCY,
+      payment_date: values.payment_date,
+      meeting_id: values.meeting_id || undefined,
+      notes: values.notes || undefined,
+    };
+    if (!payload.amount || payload.amount <= 0) {
+      window.alert('Enter a payment amount.');
+      return;
+    }
+
+    try {
+      if (demo) {
+        demoWorkspace.payments.push({ ...payload, id: crypto.randomUUID(), client_id: clientId });
+      } else {
+        await createPayment(clientId, payload);
+      }
+      modal.remove();
+      await openClientProfile(clientId);
+    } catch (error) {
+      window.alert(error.message);
+    }
+  };
+}
+
+function demoClientFinance(clientId) {
+  const meetings = demoWorkspace.meetings.filter((meeting) => meeting.client_id === clientId);
+  const payments = demoWorkspace.payments.filter((payment) => payment.client_id === clientId);
+  const charged = meetings.filter((meeting) => meeting.status !== 'cancelled').reduce((sum, meeting) => sum + Number(meeting.cost || 0), 0);
+  const paid = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const meetingBalances = meetings.map((meeting) => {
+    const meetingPaid = payments
+      .filter((payment) => payment.meeting_id === meeting.id)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    return {
+      id: meeting.id,
+      meeting_date: meeting.meeting_date,
+      start_time: meeting.start_time,
+      status: meeting.status,
+      currency: meeting.currency || DEFAULT_DISPLAY_CURRENCY,
+      charged: Number(meeting.cost || 0),
+      paid: meetingPaid,
+      owed: Math.max(Number(meeting.cost || 0) - meetingPaid, 0),
+    };
+  });
+  return { meetings, meeting_balances: meetingBalances, payments, totals: { charged, paid, owed: Math.max(charged - paid, 0) } };
 }
 
 function openReminderModal(reminder = null) {
-  document.body.insertAdjacentHTML('beforeend', renderReminderModal(reminder, workspace.clients));
+  document.body.insertAdjacentHTML('beforeend', renderReminderModal(reminder, workspace.clients, workspace.user?.reminder_email || workspace.user?.email || ''));
   const modal = document.querySelector('#reminder-modal-backdrop');
   const form = document.querySelector('#reminder-form');
 

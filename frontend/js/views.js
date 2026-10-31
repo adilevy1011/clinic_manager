@@ -111,13 +111,36 @@ function clientRow(client, rate) {
   return `<button class="client-row" data-client-id="${escapeHtml(client.id)}"><span><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.email || 'No email added')}</small></span><span class="meeting-cost"><strong>${primary(client.default_fee, currency, rate)}</strong><small>${secondary(client.default_fee, currency, rate)}</small></span><span class="client-arrow">›</span></button>`;
 }
 
+function currentTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local time';
+}
+
+function formatReminderDateTime(value) {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: currentTimeZone(),
+  }).format(new Date(value));
+}
+
+function localDateTimeValue(value) {
+  const date = new Date(value);
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function reminderRow(reminder) {
   const when = reminder.recurrence === 'after_session'
     ? `After each session${reminder.clients?.name ? ` · ${escapeHtml(reminder.clients.name)}` : ''}`
     : reminder.remind_at
-      ? new Date(reminder.remind_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      ? formatReminderDateTime(reminder.remind_at)
       : 'No notification time set';
   return `<button type="button" class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}"><span class="reminder-dot"></span><span class="reminder-copy"><strong>${escapeHtml(reminder.title)}</strong><small>${escapeHtml(reminder.body || when)}</small></span><span class="reminder-when">${when}</span><span class="client-arrow">›</span></button>`;
+}
+
+function settingsPage(user) {
+  const email = user?.reminder_email || user?.email || '';
+  return `<section class="view-panel" id="settings-view"><section class="panel settings-panel"><div class="panel-header"><div><h2>Settings</h2><p class="panel-note">Manage where reminder emails are sent.</p></div></div><form id="settings-form" class="form-grid"><div class="form-field full-span"><label for="reminder-email">Reminder email</label><input id="reminder-email" name="email" type="email" value="${escapeHtml(email)}" autocomplete="email" required><small class="field-help">This address is used as the default recipient when you create a reminder.</small></div><div class="modal-actions full-span"><button class="button">Save settings</button></div></form><div class="settings-account"><span class="summary-label">Signed in as</span><strong>${escapeHtml(user?.email || email)}</strong><button type="button" class="button secondary" id="logout">Sign out</button></div></section></section>`;
 }
 
 export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_ILS, calendarMode = 'month', focusDate = `${month}-01`) {
@@ -144,6 +167,25 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
     <section class="view-panel hidden" id="clients-view"><section class="panel"><div class="panel-header"><div><h2>Clients</h2><p class="panel-note">Select a client to view and edit their profile.</p></div><button class="button secondary" id="new-client">Add client</button></div><div class="client-list">${workspace.clients.length ? workspace.clients.map((client) => clientRow(client, rate)).join('') : '<div class="empty"><strong>No clients yet.</strong>Add a client to get started.</div>'}</div></section></section>
     <section class="view-panel hidden" id="reminders-view"><section class="panel"><div class="panel-header"><div><h2>Reminders</h2><p class="panel-note">Scheduled nudges and after-session routines.</p></div><button class="button secondary" id="new-reminder">Add reminder</button></div><div class="reminder-list">${workspace.reminders?.length ? workspace.reminders.map(reminderRow).join('') : '<div class="empty"><strong>No reminders yet.</strong>Add one for a scheduled nudge or a post-session routine.</div>'}</div></section></section>
   </main>`;
+
+  const page = root.dataset.page || 'today';
+  const pageTargets = { today: 'today-view', calendar: 'calendar-view', sessions: 'sessions-view', clients: 'clients-view', reminders: 'reminders-view' };
+  root.querySelector('.intro')?.remove();
+  const tabs = root.querySelector('.view-tabs');
+  const topbar = root.querySelector('.topbar');
+  const userActions = topbar.querySelector('.user-actions');
+  const navItems = [['today', 'Your day'], ['calendar', 'Calendar'], ['sessions', 'Sessions'], ['clients', 'Clients'], ['reminders', 'Reminders'], ['settings', 'Settings']];
+  const nav = document.createElement('nav');
+  nav.className = 'top-nav';
+  nav.setAttribute('aria-label', 'Workspace views');
+  nav.innerHTML = `${navItems.map(([name, label]) => `<a class="top-nav-link ${page === name ? 'active' : ''}" href="/${name}" data-page-link="${name}">${label}</a>`).join('')}<button class="button top-nav-action" id="new-meeting">+ New session</button>`;
+  topbar.insertBefore(nav, userActions);
+  tabs.remove();
+  userActions.querySelector('#logout')?.remove();
+  const activePanel = pageTargets[page];
+  root.querySelectorAll('.view-panel').forEach((panel) => panel.classList.toggle('hidden', panel.id !== activePanel));
+  if (page === 'settings') root.querySelector('main').insertAdjacentHTML('beforeend', settingsPage(workspace.user));
+
 }
 
 function moneyFields(prefix, value = '', required = true, currency = DEFAULT_DISPLAY_CURRENCY, alternateValue = '') {
@@ -158,8 +200,8 @@ export function renderModal(type, clients, rate = DEFAULT_USD_TO_ILS, existingMe
   const selectedClient = existingMeeting ? clients.find((client) => client.id === existingMeeting.client_id) : clients[0];
   const selectedCurrency = existingMeeting?.currency || selectedClient?.currency || DEFAULT_DISPLAY_CURRENCY;
   const initialMeetingDate = existingMeeting?.meeting_date || initialDate || today;
-  const initialIls = existingMeeting ? existingMeeting.cost : '';
-  const initialUsd = existingMeeting && selectedCurrency === 'USD' ? (Number(existingMeeting.cost) / rate).toFixed(2) : '';
+  const initialIls = existingMeeting?.cost ?? selectedClient?.default_fee ?? '';
+  const initialUsd = selectedCurrency === 'USD' && initialIls !== '' ? (Number(initialIls) / rate).toFixed(2) : '';
   const statusOptions = [{ value: 'scheduled', label: 'Scheduled' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }];
   const paymentOptions = [{ value: 'unpaid', label: 'Unpaid' }, { value: 'partial', label: 'Partially paid' }, { value: 'paid', label: 'Paid' }];
   const statusValue = existingMeeting?.status || 'scheduled';
@@ -180,7 +222,21 @@ export function renderClientProfile(client, rate = DEFAULT_USD_TO_ILS) {
   return `<div class="modal-backdrop" id="client-profile-backdrop"><section class="modal profile-modal"><div class="modal-header"><div><div class="eyebrow">Client profile</div><h2>${escapeHtml(client.name)}</h2></div><button class="close" id="close-client-profile" aria-label="Close">×</button></div><form id="client-profile-form" class="form-grid"><div class="form-field full-span"><label>Name</label><input name="name" value="${escapeHtml(client.name)}" required></div><div class="form-field full-span"><label>Email</label><input name="email" type="email" value="${escapeHtml(client.email || '')}"></div>${moneyFields('default_fee', ilsValue, true, currency, usdValue)}<div class="form-field full-span"><label>Client comments</label><textarea name="notes" rows="7" maxlength="3000" placeholder="Context, preferences, or private notes">${escapeHtml(client.notes || '')}</textarea></div><div class="rate-note full-span">The saved currency preference is based on the last fee field you use.</div><div class="full-span"><button class="button full">Save profile</button></div></form></section></div>`;
 }
 
-export function renderReminderModal(reminder, clients) {
+export function renderClientFinanceProfile(client, rate = DEFAULT_USD_TO_ILS, finance = {}) {
+  const currency = client.currency || DEFAULT_DISPLAY_CURRENCY;
+  const ilsValue = client.default_fee;
+  const usdValue = currency === 'USD' ? (Number(client.default_fee) / rate).toFixed(2) : '';
+  const totals = finance.totals || { charged: 0, paid: 0, owed: 0 };
+  const payments = finance.payments || [];
+  const meetingBalances = (finance.meeting_balances || []).filter((meeting) => meeting.status !== 'cancelled');
+  const meetingOptions = [{ value: '', label: 'General payment' }, ...(finance.meetings || []).map((meeting) => ({ value: meeting.id, label: `${meeting.meeting_date} · ${meeting.start_time.slice(0, 5)}` }))];
+  const paymentRows = payments.length ? payments.map((payment) => `<div class="payment-row"><div><strong>${new Date(`${payment.payment_date}T12:00:00`).toLocaleDateString('en-US', { dateStyle: 'medium' })}</strong><small>${escapeHtml(payment.notes || 'Payment')}${payment.meeting_id ? ' · Linked to session' : ''}</small></div><div class="meeting-cost"><strong>${primary(payment.amount, payment.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</strong><small>${secondary(payment.amount, payment.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</small></div><button type="button" class="icon-button payment-delete" data-payment-id="${escapeHtml(payment.id)}" aria-label="Delete payment">×</button></div>`).join('') : '<div class="empty"><strong>No payments logged.</strong>Add the first payment below.</div>';
+  const balanceRows = meetingBalances.length ? meetingBalances.map((meeting) => `<div class="payment-row"><div><strong>${new Date(`${meeting.meeting_date}T12:00:00`).toLocaleDateString('en-US', { dateStyle: 'medium' })}</strong><small>${escapeHtml(meeting.start_time.slice(0, 5))} · ${escapeHtml(meeting.status)}</small></div><div class="meeting-cost"><strong>${primary(meeting.charged, meeting.currency, rate)}</strong><small>${meeting.owed > 0 ? `${primary(meeting.owed, meeting.currency, rate)} owed` : 'Paid'}</small></div></div>`).join('') : '<div class="empty">No billable sessions yet.</div>';
+
+  return `<div class="modal-backdrop" id="client-profile-backdrop"><section class="modal profile-modal"><div class="modal-header"><div><div class="eyebrow">Client profile</div><h2>${escapeHtml(client.name)}</h2></div><button class="close" id="close-client-profile" aria-label="Close">×</button></div><form id="client-profile-form" class="form-grid"><div class="form-field full-span"><label>Name</label><input name="name" value="${escapeHtml(client.name)}" required></div><div class="form-field full-span"><label>Email</label><input name="email" type="email" value="${escapeHtml(client.email || '')}"></div>${moneyFields('default_fee', ilsValue, true, currency, usdValue)}<div class="form-field full-span"><label>Client comments</label><textarea name="notes" rows="5" maxlength="3000" placeholder="Context, preferences, or private notes">${escapeHtml(client.notes || '')}</textarea></div><div class="rate-note full-span">The saved currency preference is based on the last fee field you use.</div><div class="full-span"><button class="button full">Save profile</button></div></form><section class="finance-section"><div class="inline-heading">Money overview</div><div class="finance-summary"><article><span>Charged</span><strong>${ils(totals.charged)}<small>${usd(totals.charged, rate)}</small></strong></article><article><span>Paid</span><strong>${ils(totals.paid)}<small>${usd(totals.paid, rate)}</small></strong></article><article class="owed"><span>Owed</span><strong>${ils(totals.owed)}<small>${usd(totals.owed, rate)}</small></strong></article></div><div class="inline-heading">Session balances</div><div class="payment-list">${balanceRows}</div><div class="inline-heading">Payment history</div><div class="payment-list">${paymentRows}</div><form id="payment-form" class="form-grid payment-form"><div class="form-field"><label>Payment date</label><input name="payment_date" type="date" value="${currentDate()}" required></div><div class="form-field"><label>Related session</label>${customSelect({ id: 'payment-meeting', name: 'meeting_id', value: '', label: 'General payment', options: meetingOptions })}</div>${moneyFields('payment_amount', '', true, DEFAULT_DISPLAY_CURRENCY)}<div class="form-field full-span"><label>Payment note</label><input name="notes" placeholder="Bank transfer, cash, invoice number..."></div><div class="full-span"><button class="button secondary">Log payment</button></div></form></section></section></div>`;
+}
+
+export function renderReminderModal(reminder, clients, defaultEmail = '') {
   const recurrenceOptions = [
     { value: 'once', label: 'One time' },
     { value: 'daily', label: 'Every day' },
@@ -192,7 +248,7 @@ export function renderReminderModal(reminder, clients) {
   const recurrenceLabel = recurrenceOptions.find((option) => option.value === recurrence)?.label || 'One time';
   const clientId = reminder?.client_id || '';
   const clientLabel = clients.find((client) => client.id === clientId)?.name || 'No client';
-  const localTime = reminder?.remind_at ? new Date(reminder.remind_at).toISOString().slice(0, 16) : '';
+  const localTime = reminder?.remind_at ? localDateTimeValue(reminder.remind_at) : '';
 
-  return `<div class="modal-backdrop" id="reminder-modal-backdrop"><section class="modal"><div class="modal-header"><div><div class="eyebrow">Practice rhythm</div><h2>${reminder ? 'Edit reminder' : 'Add reminder'}</h2></div><button class="close" id="close-reminder" aria-label="Close">×</button></div><form id="reminder-form" class="form-grid"><div class="form-field full-span"><label>Reminder</label><input name="title" value="${escapeHtml(reminder?.title || '')}" placeholder="Write session note" required></div><div class="form-field full-span"><label>Details</label><textarea name="body" rows="3" maxlength="3000" placeholder="What should you remember?">${escapeHtml(reminder?.body || '')}</textarea></div><div class="form-field"><label>Pattern</label>${customSelect({ id: 'reminder-recurrence', name: 'recurrence', value: recurrence, label: recurrenceLabel, options: recurrenceOptions })}</div><div class="form-field"><label>Client</label>${customSelect({ id: 'reminder-client', name: 'client_id', value: clientId, label: clientLabel, options: clientOptions })}</div><div class="form-field full-span"><label>Notification time</label><input name="remind_at" type="datetime-local" value="${localTime}"><small class="field-help">Use this for one-time, daily, or weekly reminders.</small></div><div class="form-field"><label>Email to notify</label><input name="email" type="email" value="${escapeHtml(reminder?.email || '')}" placeholder="you@example.com" required></div><div class="form-field"><label>Minutes after session</label><input name="trigger_after_minutes" type="number" min="0" step="1" value="${reminder?.trigger_after_minutes || 0}"><small class="field-help">Used for after-session reminders.</small></div><div class="modal-actions full-span">${reminder ? '<button type="button" class="button danger" id="delete-reminder">Delete reminder</button>' : ''}<button class="button">Save reminder</button></div></form></section></div>`;
+  return `<div class="modal-backdrop" id="reminder-modal-backdrop"><section class="modal"><div class="modal-header"><div><div class="eyebrow">Practice rhythm</div><h2>${reminder ? 'Edit reminder' : 'Add reminder'}</h2></div><button class="close" id="close-reminder" aria-label="Close">×</button></div><form id="reminder-form" class="form-grid"><div class="form-field full-span"><label>Reminder</label><input name="title" value="${escapeHtml(reminder?.title || '')}" placeholder="Write session note" required></div><div class="form-field full-span"><label>Details</label><textarea name="body" rows="3" maxlength="3000" placeholder="What should you remember?">${escapeHtml(reminder?.body || '')}</textarea></div><div class="form-field"><label>Pattern</label>${customSelect({ id: 'reminder-recurrence', name: 'recurrence', value: recurrence, label: recurrenceLabel, options: recurrenceOptions })}</div><div class="form-field"><label>Client</label>${customSelect({ id: 'reminder-client', name: 'client_id', value: clientId, label: clientLabel, options: clientOptions })}</div><div class="form-field full-span"><label>Notification time</label><input name="remind_at" type="datetime-local" value="${localTime}"><small class="field-help">Enter the notification time in your local time.</small></div><div class="form-field"><label>Email to notify</label><input name="email" type="email" value="${escapeHtml(reminder?.email || defaultEmail)}" placeholder="you@example.com" required></div><div class="form-field"><label>Minutes after session</label><input name="trigger_after_minutes" type="number" min="0" step="1" value="${reminder?.trigger_after_minutes || 0}"><small class="field-help">Used for after-session reminders.</small></div><div class="modal-actions full-span">${reminder ? '<button type="button" class="button danger" id="delete-reminder">Delete reminder</button>' : ''}<button class="button">Save reminder</button></div></form></section></div>`;
 }

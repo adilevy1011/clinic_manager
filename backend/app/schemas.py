@@ -77,3 +77,15 @@ class ReminderUpdate(BaseModel):
     email: str | None = None
     trigger_after_minutes: int | None = Field(default=None, ge=0, le=10080)
     completed: bool | None = None
+
+
+class ProfileUpdate(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class PaymentCreate(BaseModel):
+    amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+    currency: Literal["ILS", "USD"] = "USD"
+    payment_date: date
+    meeting_id: str | None = None
+    notes: str | None = Field(default=None, max_length=2000)
