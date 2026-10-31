@@ -16,3 +16,5 @@ The local page shows sample data when opened on port 3000. To exercise real logi
 Copy `deploy/clinic-manager.service` to `/etc/systemd/system/` and `deploy/clinic-manager.nginx.conf` to `/etc/nginx/sites-available/clinic-manager`; update `/var/www/clinic-manager` if you deploy elsewhere. Put backend secrets in `/var/www/clinic-manager/backend/.env`, enable the service and Nginx site, then run Certbot after DNS is live.
 
 The included Nginx config serves the static frontend and proxies `/api` to Uvicorn on `127.0.0.1:8017`. Replace the placeholder `server_name _;` in the server-only Nginx copy with your own domain. The browser never receives a Supabase key. Use the Supabase anon key only in the backend environment; never use the service-role key in frontend code.
+
+The reminder delivery worker is separate from Uvicorn. On the droplet, add `SUPABASE_SERVICE_ROLE_KEY` to the private backend environment file, then install and enable `deploy/clinic-manager-reminder-worker.service` alongside the API service. The service-role key is server-only and must never be committed or exposed to the frontend.

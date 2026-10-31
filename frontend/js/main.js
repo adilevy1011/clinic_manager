@@ -1,5 +1,7 @@
 import {
   createRecord,
+  createReminder,
+  deleteReminder,
   deleteMeeting,
   isDemo,
   loadWorkspace,
@@ -7,10 +9,17 @@ import {
   logout,
   updateClient,
   updateMeeting,
+  updateReminder,
 } from './api.js';
 import { currentDate, currentMonth, sampleWorkspace, shiftDate, shiftMonth } from './data.js';
 import { DEFAULT_DISPLAY_CURRENCY, DEFAULT_USD_TO_ILS, getOfficialShekelRate } from './currency.js';
-import { renderClientProfile, renderDashboard, renderLogin, renderModal } from './views.js';
+import {
+  renderClientProfile,
+  renderDashboard,
+  renderLogin,
+  renderModal,
+  renderReminderModal,
+} from './views.js';
 
 const root = document.querySelector('#app');
 const demo = isDemo();
@@ -117,9 +126,17 @@ function bindDashboard() {
     await refresh();
   };
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
+  document.querySelector('#new-today-meeting').onclick = () => openModal('meeting', { date: currentDate() });
   document.querySelector('#new-client').onclick = () => openModal('client');
+  document.querySelector('#new-reminder').onclick = () => openReminderModal();
   document.querySelectorAll('[data-client-id]').forEach((clientButton) => {
     clientButton.onclick = () => openClientProfile(clientButton.dataset.clientId);
+  });
+  document.querySelectorAll('[data-reminder-id]').forEach((reminderButton) => {
+    reminderButton.onclick = () => {
+      const reminder = workspace.reminders.find((item) => item.id === reminderButton.dataset.reminderId);
+      if (reminder) openReminderModal(reminder);
+    };
   });
 }
 
@@ -296,6 +313,10 @@ function openModal(type, options = {}) {
           cost: Number(values.cost_ils || 0),
           currency: values.cost_currency || DEFAULT_DISPLAY_CURRENCY,
           status: values.status,
+          payment_status: values.payment_status || 'unpaid',
+          amount_paid: values.payment_status === 'paid'
+            ? Number(values.cost_ils || 0)
+            : Number(values.amount_paid_ils || 0),
           notes: options.meeting ? (values.notes || '') : (values.notes || undefined),
         };
 
@@ -364,6 +385,72 @@ function openClientProfile(clientId) {
         await updateClient(clientId, payload);
       }
 
+      modal.remove();
+      await refresh();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  };
+}
+
+function openReminderModal(reminder = null) {
+  document.body.insertAdjacentHTML('beforeend', renderReminderModal(reminder, workspace.clients));
+  const modal = document.querySelector('#reminder-modal-backdrop');
+  const form = document.querySelector('#reminder-form');
+
+  document.querySelector('#close-reminder').onclick = () => modal.remove();
+  bindCustomSelects(modal, () => {});
+
+  const deleteButton = document.querySelector('#delete-reminder');
+  if (deleteButton && reminder) {
+    deleteButton.onclick = async () => {
+      if (!window.confirm('Delete this reminder?')) return;
+      try {
+        if (demo) {
+          const index = demoWorkspace.reminders.findIndex((item) => item.id === reminder.id);
+          if (index >= 0) demoWorkspace.reminders.splice(index, 1);
+        } else {
+          await deleteReminder(reminder.id);
+        }
+        modal.remove();
+        await refresh();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    };
+  }
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const values = formValues(form);
+    if (values.recurrence === 'after_session' && !values.client_id) {
+      window.alert('Choose a client for an after-session reminder.');
+      return;
+    }
+
+    const payload = {
+      title: values.title,
+      body: values.body || undefined,
+      remind_at: values.remind_at ? new Date(values.remind_at).toISOString() : undefined,
+      recurrence: values.recurrence,
+      client_id: values.client_id || undefined,
+      email: values.email,
+      trigger_after_minutes: Number(values.trigger_after_minutes || 0),
+    };
+
+    try {
+      if (demo) {
+        if (reminder) {
+          const saved = demoWorkspace.reminders.find((item) => item.id === reminder.id);
+          if (saved) Object.assign(saved, payload);
+        } else {
+          demoWorkspace.reminders.push({ ...payload, id: crypto.randomUUID() });
+        }
+      } else if (reminder) {
+        await updateReminder(reminder.id, payload);
+      } else {
+        await createReminder(payload);
+      }
       modal.remove();
       await refresh();
     } catch (error) {

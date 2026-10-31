@@ -1,0 +1,17 @@
+[Unit]
+Description=Clinic Manager reminder delivery worker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/clinic-manager
+EnvironmentFile=/var/www/clinic-manager/backend/.env
+ExecStart=/var/www/clinic-manager/.venv/bin/python /var/www/clinic-manager/backend/reminder_worker.py
+Restart=always
+RestartSec=10
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

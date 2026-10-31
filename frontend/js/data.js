@@ -1,5 +1,9 @@
 export const sampleWorkspace = {
   user: { name: 'Therapist' },
+  reminders: [
+    { id: 'r1', title: 'Send intake form', body: 'Follow up before the first appointment.', remind_at: '2026-10-30T10:00:00-07:00', recurrence: 'once', email: '' },
+    { id: 'r2', title: 'Write session note', body: 'Capture the main themes while they are fresh.', recurrence: 'after_session', client_id: 'a', trigger_after_minutes: 30, clients: { name: 'Noa Levi' }, email: '' },
+  ],
   clients: [
     { id: 'a', name: 'Noa Levi', default_fee: 420 },
     { id: 'b', name: 'Daniel Cohen', default_fee: 420 },

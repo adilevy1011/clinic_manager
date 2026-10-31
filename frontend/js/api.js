@@ -31,9 +31,10 @@ export async function logout() {
 
 export async function loadWorkspace(month, additionalMonths = []) {
   const months = [month, ...additionalMonths];
-  const [me, clients, ...meetingResponses] = await Promise.all([
+  const [me, clients, reminders, ...meetingResponses] = await Promise.all([
     request('/me'),
     request('/clients'),
+    request('/reminders'),
     ...months.map((value) => request(`/meetings?month=${value}`)),
   ]);
 
@@ -41,7 +42,7 @@ export async function loadWorkspace(month, additionalMonths = []) {
     meetingResponses.flat().map((meeting) => [meeting.id, meeting]),
   ).values()];
 
-  return { user: me.user, meetings, clients };
+  return { user: me.user, meetings, clients, reminders };
 }
 
 export async function createRecord(kind, payload) {
@@ -67,6 +68,24 @@ export async function updateMeeting(meetingId, payload) {
 
 export async function deleteMeeting(meetingId) {
   return request(`/meetings/${meetingId}`, { method: 'DELETE' });
+}
+
+export async function createReminder(payload) {
+  return request('/reminders', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateReminder(reminderId, payload) {
+  return request(`/reminders/${reminderId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteReminder(reminderId) {
+  return request(`/reminders/${reminderId}`, { method: 'DELETE' });
 }
 
 export function isDemo() {
