@@ -55,26 +55,27 @@ function meetingCard(meeting, rate) {
   const date = new Date(`${meeting.meeting_date}T12:00:00`);
   const currency = meeting.currency || DEFAULT_DISPLAY_CURRENCY;
   const comment = meeting.notes ? ` · ${escapeHtml(meeting.notes)}` : '';
-  const owed = Math.max(Number(meeting.cost || 0) - Number(meeting.amount_paid || 0), 0);
+  const owed = meeting.status === 'completed' ? Math.max(Number(meeting.cost || 0) - Number(meeting.amount_paid || 0), 0) : 0;
 
   return `<div class="meeting meeting-action" data-meeting-id="${escapeHtml(meeting.id)}" role="button" tabindex="0">
     <div><div class="meeting-date">${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div><div class="meeting-time">${escapeHtml(meeting.start_time.slice(0, 5))}</div></div>
     <div><div class="meeting-name">${escapeHtml(meeting.clients?.name || 'Client')}<span class="status-pill ${meeting.status === 'cancelled' ? 'cancelled' : ''}">${escapeHtml(meeting.status)}</span></div><div class="meeting-meta">${meeting.status === 'completed' ? 'Completed session' : 'Scheduled session'}${comment}</div></div>
-    <div class="meeting-cost"><strong>${primary(meeting.cost, currency, rate)}</strong><small>${owed > 0 ? `${primary(owed, currency, rate)} owed` : 'Paid'}</small></div>
+    <div class="meeting-cost"><strong>${primary(meeting.cost, currency, rate)}</strong><small>${meeting.status === 'scheduled' ? 'Anticipated' : owed > 0 ? `${primary(owed, currency, rate)} owed` : 'Paid'}</small></div>
   </div>`;
 }
 
 function todaySchedule(meetings, today, rate) {
   const todayMeetings = meetings.filter((meeting) => meeting.meeting_date === today).sort((a, b) => a.start_time.localeCompare(b.start_time));
-  const owed = todayMeetings.reduce((sum, meeting) => sum + Math.max(Number(meeting.cost || 0) - Number(meeting.amount_paid || 0), 0), 0);
-  const collected = todayMeetings.reduce((sum, meeting) => sum + Number(meeting.amount_paid || 0), 0);
+  const owed = todayMeetings.filter((meeting) => meeting.status === 'completed').reduce((sum, meeting) => sum + Math.max(Number(meeting.cost || 0) - Number(meeting.amount_paid || 0), 0), 0);
+  const collected = todayMeetings.filter((meeting) => meeting.status === 'completed').reduce((sum, meeting) => sum + Number(meeting.amount_paid || 0), 0);
   const date = new Date(`${today}T12:00:00`);
 
   return `<section class="today-layout"><div class="today-summary"><article class="summary-card lilac"><div class="summary-label">Payments owed today</div><div class="summary-value">${ils(owed)}<small>${usd(owed, rate)}</small></div></article><article class="summary-card mint"><div class="summary-label">Collected today</div><div class="summary-value">${ils(collected)}<small>${usd(collected, rate)}</small></div></article></div><section class="panel today-schedule"><div class="panel-header"><div><h2>${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h2><p class="panel-note">${todayMeetings.length} sessions scheduled</p></div><button class="button" id="new-today-meeting">+ New session</button></div><div class="day-event-list">${todayMeetings.length ? todayMeetings.map((meeting) => `<button type="button" class="day-event" data-meeting-id="${escapeHtml(meeting.id)}"><span class="day-event-time">${escapeHtml(meeting.start_time.slice(0, 5))}</span><span><strong>${escapeHtml(meeting.clients?.name || 'Client')}</strong><small>${escapeHtml(meeting.notes || 'No comments')}</small></span><span class="meeting-cost"><strong>${primary(meeting.cost, meeting.currency || DEFAULT_DISPLAY_CURRENCY, rate)}</strong><small>${owedForLabel(meeting, rate)}</small></span></button>`).join('') : '<div class="empty"><strong>No sessions today.</strong>Use New session to add one to today\'s schedule.</div>'}</div></section></section>`;
 }
 
 function owedForLabel(meeting, rate) {
-  const owed = Math.max(Number(meeting.cost || 0) - Number(meeting.amount_paid || 0), 0);
+  if (meeting.status === 'scheduled') return 'Anticipated';
+  const owed = meeting.status === 'completed' ? Math.max(Number(meeting.cost || 0) - Number(meeting.amount_paid || 0), 0) : 0;
   return owed > 0 ? `${primary(owed, meeting.currency || DEFAULT_DISPLAY_CURRENCY, rate)} owed` : 'Paid';
 }
 

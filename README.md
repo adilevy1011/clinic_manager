@@ -1,35 +1,77 @@
 # Stillpoint Clinic Manager
 
-Therapist-facing meeting and fee manager. The frontend talks only to FastAPI; Supabase Auth, Postgres/RLS, and Resend are server-side integrations. Monetary amounts are stored canonically in ILS; each client and meeting also stores the last selected display/input currency (`ILS` or `USD`).
+Stillpoint Clinic Manager is a private-practice workspace for therapists. It keeps the therapist's schedule, client profiles, recurring sessions, fees, payment history, reminders, and monthly financial summaries in one place.
 
-## Local run
+The application is intentionally therapist-facing. Clients do not receive accounts and the browser never talks directly to Supabase. The frontend calls the FastAPI backend, while FastAPI owns authentication, database access, recurrence expansion, financial calculations, and Resend email delivery.
 
-1. Start Supabase locally and run `supabase db reset` to apply the initial schema.
-2. Copy `backend/.env.example` to `backend/.env`, fill in Supabase and Resend values, then install dependencies with `python -m pip install -r backend/requirements.txt`.
-3. Run the API: `uvicorn main:app --app-dir backend --reload --port 8017 --env-file backend/.env`.
-4. Serve the frontend: `python -m http.server 3000 --directory frontend` and open http://localhost:3000.
+## What is included
 
-The local page shows sample data when opened on port 3000. To exercise real login locally, set `window.ENABLE_PRODUCTION_AUTH = true` before `app.js` and use a backend configured with `FRONTEND_URL=http://localhost:3000`.
+- HTTP-only cookie login and logout backed by Supabase Auth.
+- A “Your Day” landing page with the day's schedule and payment summary.
+- Calendar, sessions, clients, money management, reminders, and settings pages.
+- Client profiles with notes, default fees, meeting summaries, and payment logs.
+- Canonical ILS storage with USD/ILS display and input conversion.
+- Monthly reporting that distinguishes completed sessions owed from scheduled sessions anticipated.
+- Weekly and monthly recurring meeting series with exception rows and end dates.
+- Reminder emails sent by Resend through a separate worker process.
+- Nginx and systemd templates for deployment behind a domain such as `clinic.example.com`.
 
-The client payment ledger is added by the later `20261031055000_client_payments.sql` migration. On an existing Supabase project, run `supabase db push` after pulling this change; do not modify the already-applied initial migration.
+## Repository map
 
-Recurring meeting series and exception rows are added by `20261031060000_meeting_recurrence_series.sql`. This migration adds the recurrence rule, end date, series, and exception metadata to meetings without changing the initial schema migration.
-
-## DigitalOcean
-
-Copy `deploy/clinic-manager.service` to `/etc/systemd/system/` and `deploy/clinic-manager.nginx.conf` to `/etc/nginx/sites-available/clinic-manager`; update `/var/www/clinic-manager` if you deploy elsewhere. Put backend secrets in `/var/www/clinic-manager/backend/.env`, enable the service and Nginx site, then run Certbot after DNS is live.
-
-The included Nginx config serves the static frontend and proxies `/api` to Uvicorn on `127.0.0.1:8017`. It serves the separate `today.html`, `calendar.html`, `sessions.html`, `clients.html`, `client.html`, `money.html`, `reminders.html`, and `settings.html` pages at extensionless URLs such as `/calendar`, `/money`, and `/client?id=...`. Replace the placeholder `server_name _;` in the server-only Nginx copy with your own domain. The browser never receives a Supabase key. Use the Supabase anon key only in the backend environment; never use the service-role key in frontend code.
-
-To install the updated Nginx configuration on the droplet:
-
-```bash
-sudo cp /var/www/clinic-manager/deploy/clinic-manager.nginx.conf /etc/nginx/sites-available/clinic-manager
-sudo ln -sfn /etc/nginx/sites-available/clinic-manager /etc/nginx/sites-enabled/clinic-manager
-sudo nginx -t
-sudo systemctl reload nginx
+```text
+backend/                 FastAPI application and reminder worker
+  app/                   configuration, database client, schemas, dependencies, routers
+frontend/                static HTML, CSS, and browser JavaScript
+  js/                    API client, state, rendering, formatting, and page boot logic
+supabase/migrations/     append-only database migrations
+deploy/                  systemd and Nginx templates
+docs/                    development, data model, and operations guides
 ```
 
-The `try_files $uri $uri/ $uri.html /today.html;` rule keeps URLs such as `/calendar` and `/settings` extensionless while serving their matching HTML files.
+## Architecture at a glance
 
-The reminder delivery worker is separate from Uvicorn. On the droplet, add `SUPABASE_SERVICE_ROLE_KEY` to the private backend environment file, then install and enable `deploy/clinic-manager-reminder-worker.service` alongside the API service. The service-role key is server-only and must never be committed or exposed to the frontend.
+```text
+Browser
+  └── FastAPI /api/* ── Supabase Auth + PostgREST/Postgres
+                    └── Resend (reminder worker only)
+```
+
+Supabase credentials and Resend credentials are backend-only environment variables. Do not add them to frontend JavaScript or commit real values. See [docs/architecture.md](docs/architecture.md) and [docs/security.md](docs/security.md).
+
+## Start locally
+
+```bash
+python -m pip install -r backend/requirements.txt
+uvicorn main:app --app-dir backend --reload --port 8017 --env-file backend/.env
+python -m http.server 3000 --directory frontend
+```
+
+Open `http://localhost:3000`. Copy `backend/.env.example` to `backend/.env` and fill in a development Supabase project before using real authentication. Supabase migrations can be applied locally with the Supabase CLI, or pushed to a linked project with `supabase db push`.
+
+The frontend includes a demo mode for browsing the interface without a backend. For real login, use a backend configured with `FRONTEND_URL=http://localhost:3000` and the matching CORS origin. More complete commands and troubleshooting are in [docs/local-development.md](docs/local-development.md).
+
+## Database changes
+
+Migrations are append-only. The initial schema has already been applied and must not be edited. Add a new timestamped SQL file under `supabase/migrations/` for every schema change. See [docs/database-and-migrations.md](docs/database-and-migrations.md).
+
+## Production deployment
+
+The deployment templates assume the repository is available at `/var/www/clinic-manager`, the virtual environment is `/var/www/clinic-manager/.venv`, and Uvicorn listens only on `127.0.0.1:8017`. They intentionally use a placeholder Nginx `server_name`; set the real domain in the server environment rather than committing it to the repository.
+
+- `deploy/clinic-manager.service` runs FastAPI.
+- `deploy/clinic-manager-reminder-worker.service` runs scheduled reminder delivery.
+- `deploy/clinic-manager.nginx.conf` serves the frontend and proxies `/api` to Uvicorn.
+
+Read [docs/deployment.md](docs/deployment.md) before enabling the services. It includes the symlinked `/var/www/clinic-manager` layout, permissions, Nginx extensionless routes, TLS, upgrades, and rollback considerations.
+
+## Further documentation
+
+- [Architecture and request flow](docs/architecture.md)
+- [Local development and testing](docs/local-development.md)
+- [Deployment and operations](docs/deployment.md)
+- [Database and migrations](docs/database-and-migrations.md)
+- [Recurring meetings](docs/recurring-meetings.md)
+- [Finance and payments](docs/finance-and-payments.md)
+- [Reminders and email](docs/reminders.md)
+- [Frontend conventions](docs/frontend-conventions.md)
+- [Security](docs/security.md)

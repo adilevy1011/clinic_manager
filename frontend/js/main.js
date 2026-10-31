@@ -763,11 +763,16 @@ function demoClientFinance(clientId, reportMonth = month) {
   const meetings = (workspace?.meetings || []).filter((meeting) => meeting.client_id === clientId);
   const payments = demoWorkspace.payments.filter((payment) => payment.client_id === clientId);
   const charged = meetings.filter((meeting) => meeting.status === 'completed').reduce((sum, meeting) => sum + Number(meeting.cost || 0), 0);
-  const paid = payments.filter((payment) => payment.payment_date?.startsWith(reportMonth)).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const paidFromLogs = payments.filter((payment) => payment.payment_date?.startsWith(reportMonth)).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const paidFromLegacy = meetings
+    .filter((meeting) => meeting.status === 'completed' && !meeting.is_virtual)
+    .reduce((sum, meeting) => sum + Math.max(Number(meeting.amount_paid || 0) - payments.filter((payment) => payment.meeting_id === meeting.id).reduce((inner, payment) => inner + Number(payment.amount || 0), 0), 0), 0);
+  const paid = paidFromLogs + paidFromLegacy;
   const meetingBalances = meetings.map((meeting) => {
-    const meetingPaid = payments
+    const ledgerPaid = payments
       .filter((payment) => payment.meeting_id === meeting.id)
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const meetingPaid = Math.max(Number(meeting.amount_paid || 0), ledgerPaid);
     return {
       id: meeting.id,
       meeting_date: meeting.meeting_date,

@@ -69,6 +69,12 @@ def client_finance(
         meeting_id = payment.get("meeting_id")
         if meeting_id:
             paid_by_meeting[meeting_id] = paid_by_meeting.get(meeting_id, Decimal("0")) + numeric(payment.get("amount"))
+    legacy_paid = sum(
+        max(numeric(meeting.get("amount_paid")) - paid_by_meeting.get(meeting.get("id"), Decimal("0")), Decimal("0"))
+        for meeting in meetings
+        if meeting.get("status") == "completed" and not meeting.get("is_virtual")
+    )
+    paid += legacy_paid
     meeting_balances = [
         {
             "id": meeting["id"],
@@ -78,8 +84,8 @@ def client_finance(
             "currency": meeting.get("currency", "USD"),
             "charged": numeric(meeting.get("cost")) if meeting.get("status") == "completed" else Decimal("0"),
             "anticipated": numeric(meeting.get("cost")) if meeting.get("status") == "scheduled" else Decimal("0"),
-            "paid": paid_by_meeting.get(meeting["id"], Decimal("0")),
-            "owed": max(numeric(meeting.get("cost")) - paid_by_meeting.get(meeting["id"], Decimal("0")), Decimal("0")) if meeting.get("status") == "completed" else Decimal("0"),
+            "paid": max(numeric(meeting.get("amount_paid")) if not meeting.get("is_virtual") else Decimal("0"), paid_by_meeting.get(meeting["id"], Decimal("0"))),
+            "owed": max(numeric(meeting.get("cost")) - max(numeric(meeting.get("amount_paid")) if not meeting.get("is_virtual") else Decimal("0"), paid_by_meeting.get(meeting["id"], Decimal("0"))), Decimal("0")) if meeting.get("status") == "completed" else Decimal("0"),
         }
         for meeting in meetings
     ]
