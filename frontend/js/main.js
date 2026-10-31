@@ -320,6 +320,24 @@ function formValues(form) {
   return values;
 }
 
+function chooseScopeDialog({ title, message, options }) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('div');
+    dialog.className = 'modal-backdrop scope-dialog-backdrop';
+    dialog.innerHTML = `<section class="modal scope-dialog"><div class="modal-header"><div><div class="eyebrow">Recurring session</div><h2>${title}</h2></div><button type="button" class="close" data-scope-cancel aria-label="Close">×</button></div><p class="scope-dialog-message">${message}</p><div class="scope-choice-list">${options.map((option) => `<button type="button" class="button ${option.value === 'single' ? 'secondary' : ''}" data-scope-choice="${option.value}">${option.label}</button>`).join('')}</div></section>`;
+    document.body.append(dialog);
+
+    const finish = (value) => {
+      dialog.remove();
+      resolve(value);
+    };
+    dialog.querySelector('[data-scope-cancel]').onclick = () => finish(null);
+    dialog.querySelectorAll('[data-scope-choice]').forEach((button) => {
+      button.onclick = () => finish(button.dataset.scopeChoice);
+    });
+  });
+}
+
 function openModal(type, options = {}) {
   document.body.insertAdjacentHTML('beforeend', renderModal(type, workspace.clients, exchangeRate, options.meeting, options.date));
   const modal = document.querySelector('#modal-backdrop');
@@ -355,14 +373,7 @@ function openModal(type, options = {}) {
     });
   }
 
-  if (type === 'meeting' && options.meeting?.is_virtual) {
-    const notesField = form.querySelector('[name="notes"]')?.closest('.form-field');
-    const scopeBox = document.createElement('div');
-    scopeBox.className = 'form-field full-span';
-    scopeBox.innerHTML = `<label>Edit scope</label><div class="custom-select" data-select data-name="edit_scope" data-value="single"><button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="select-label">This session only</span><span class="select-chevron">⌄</span></button><div class="select-menu" role="listbox"><button type="button" role="option" class="select-option selected" data-option="single">This session only</button><button type="button" role="option" class="select-option" data-option="all">Entire sequence</button><button type="button" role="option" class="select-option" data-option="future">This and following sessions</button></div></div>`;
-    notesField?.after(scopeBox);
-    bindCustomSelects(modal, () => {});
-  }
+  const isSequenceOccurrence = Boolean(options.meeting?.is_virtual || options.meeting?.source_meeting_id);
 
   const clientSelect = document.querySelector('#client-select');
   if (clientSelect?.dataset.value === '__new__') setNewClientVisibility(true);
@@ -372,9 +383,16 @@ function openModal(type, options = {}) {
     deleteButton.onclick = async () => {
       let deleteScope = 'single';
       if (options.meeting.is_virtual) {
-        const answer = window.prompt('Delete this recurring session? Type: single, future, or all.', 'single')?.trim().toLowerCase();
-        if (!answer || !['single', 'future', 'all'].includes(answer)) return;
-        deleteScope = answer;
+        deleteScope = await chooseScopeDialog({
+          title: 'Delete recurring session',
+          message: 'Choose which sessions should be removed.',
+          options: [
+            { value: 'single', label: 'Delete this session only' },
+            { value: 'future', label: 'Delete this and following sessions' },
+            { value: 'all', label: 'Delete the entire sequence' },
+          ],
+        });
+        if (!deleteScope) return;
       } else if (!window.confirm('Delete this session?')) {
         return;
       }
@@ -413,6 +431,19 @@ function openModal(type, options = {}) {
   form.onsubmit = async (event) => {
     event.preventDefault();
     const values = formValues(form);
+    let editScope = form.querySelector('[data-name="edit_scope"]')?.dataset.value || values.edit_scope || 'single';
+    if (isSequenceOccurrence) {
+      editScope = await chooseScopeDialog({
+        title: 'Apply session changes',
+        message: 'Choose which sessions should use these changes.',
+        options: [
+          { value: 'single', label: 'Change this session only' },
+          { value: 'all', label: 'Change the entire sequence' },
+          { value: 'future', label: 'Change this and following sessions' },
+        ],
+      });
+      if (!editScope) return;
+    }
     exchangeRate = Number(values.exchange_rate) || exchangeRate;
     localStorage.setItem('stillpoint-usd-ils-rate', exchangeRate.toString());
 
@@ -470,9 +501,9 @@ function openModal(type, options = {}) {
             if (options.meeting.is_virtual) {
               const series = demoWorkspace.meetings.find((item) => item.series_id === options.meeting.series_id && item.recurrence_rule);
               const exceptionDate = options.meeting.recurrence_occurrence_date || options.meeting.meeting_date;
-              if (values.edit_scope === 'all' && series) {
+              if (editScope === 'all' && series) {
                 Object.assign(series, meetingPayload, { clients: { name: client?.name || 'Client' } });
-              } else if (values.edit_scope === 'future' && series) {
+              } else if (editScope === 'future' && series) {
                 const oldEndDate = series.recurrence_end_date;
                 series.recurrence_end_date = shiftDate(exceptionDate, -1);
                 demoWorkspace.meetings.push({ ...series, ...meetingPayload, id: crypto.randomUUID(), series_id: crypto.randomUUID(), meeting_date: meetingPayload.meeting_date, recurrence_end_date: oldEndDate, clients: { name: client?.name || 'Client' } });
@@ -487,7 +518,7 @@ function openModal(type, options = {}) {
             demoWorkspace.meetings.push({ ...meetingPayload, recurrence_rule: recurrenceRule, recurrence_end_date: recurrenceEndDate, series_id: crypto.randomUUID(), clients: { name: client?.name || 'Client' } });
           }
         } else if (options.meeting) {
-          await updateMeeting(options.meeting.id, { ...meetingPayload, edit_scope: values.edit_scope || 'single' });
+          await updateMeeting(options.meeting.id, { ...meetingPayload, edit_scope: editScope });
         } else {
           await createRecord('meeting', { ...meetingPayload, recurrence_rule: recurrenceRule, recurrence_end_date: recurrenceEndDate });
         }

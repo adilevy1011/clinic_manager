@@ -42,6 +42,11 @@
 .settings-account { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
 .settings-account .summary-label { grid-column: 1 / -1; margin: 0; }
 .settings-account strong { overflow-wrap: anywhere; }
+.scope-dialog-backdrop { z-index: 6; }
+.scope-dialog { width: min(480px, 100%); }
+.scope-dialog-message { color: var(--muted); margin: 14px 0 20px; }
+.scope-choice-list { display: grid; gap: 10px; }
+.scope-choice-list .button { width: 100%; text-align: left; }
 .tab-button { border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--muted); font: 600 15px inherit; padding: 11px 14px; cursor: pointer; }
 .tab-button:hover { color: var(--ink); background: #e8eee8; }
 .tab-button.active { background: var(--ink); color: #fff; }
