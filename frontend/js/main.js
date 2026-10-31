@@ -56,7 +56,21 @@ async function refresh() {
       window.location.href = '/clients';
       return;
     }
-    const finance = demo ? demoClientFinance(clientId) : await loadClientFinance(clientId);
+    let finance = demo ? demoClientFinance(clientId) : null;
+    if (!demo) {
+      try {
+        finance = await loadClientFinance(clientId);
+      } catch (error) {
+        console.error('Client finance failed to load:', error);
+        finance = {
+          meetings: [],
+          payments: [],
+          meeting_balances: [],
+          totals: { charged: 0, paid: 0, owed: 0 },
+          error: 'Client finance could not be loaded. Apply the latest Supabase migrations and refresh.',
+        };
+      }
+    }
     renderClientPage(client, exchangeRate, finance);
     bindClientPage(clientId);
     return;
@@ -820,8 +834,9 @@ export async function boot() {
       exchangeRate = await getOfficialShekelRate();
     }
     await refresh();
-  } catch {
-    renderLogin(root, { demo });
+  } catch (error) {
+    console.error('Clinic Manager boot failed:', error);
+    renderLogin(root, { demo, error: error.message });
     bindLogin();
   }
 }
