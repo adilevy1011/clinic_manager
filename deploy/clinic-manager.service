@@ -1,0 +1,17 @@
+[Unit]
+Description=Clinic Manager FastAPI backend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/clinic-manager/backend
+EnvironmentFile=/var/www/clinic-manager/backend/.env
+ExecStart=/var/www/clinic-manager/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8017 --workers 2
+Restart=always
+RestartSec=5
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

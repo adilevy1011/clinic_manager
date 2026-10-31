@@ -1,0 +1,6 @@
+backend/.env
+frontend/config.js
+__pycache__/
+*.py[cod]
+.venv/
+supabase/.temp/

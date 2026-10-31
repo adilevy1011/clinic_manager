@@ -1,0 +1,1 @@
+"""Clinic Manager backend package."""
