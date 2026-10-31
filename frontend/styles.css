@@ -71,4 +71,6 @@
 .client-row small { color: var(--muted); font-size: 13px; }
 .client-arrow { color: var(--muted); font-size: 24px; }
 .profile-modal { max-height: calc(100vh - 40px); overflow-y: auto; }
+.modal { max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; margin: auto; }
+.modal-backdrop { overflow-y: auto; align-items: start; }
 @media (max-width: 520px) { .view-tabs { flex-wrap: wrap; } .tab-action { width: 100%; margin-left: 0; } }
