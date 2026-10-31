@@ -29,7 +29,7 @@ export function ils(value) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'ILS',
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
   }).format(Number(value || 0));
 }
 
@@ -37,7 +37,7 @@ export function usd(value, rate = DEFAULT_USD_TO_ILS) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
   }).format(Number(value || 0) / rate);
 }
 
