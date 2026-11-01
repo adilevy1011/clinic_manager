@@ -33,6 +33,7 @@
 .top-nav-link:hover, .tab-button:hover { background: #e8eee8; color: var(--ink); }
 .top-nav-link.active, .tab-button.active, .client-tab.active, .mode-button.active { background: var(--ink); color: #fff; }
 .top-nav-action { margin-left: 8px; padding: 9px 13px; }
+.mobile-nav-toggle, .mobile-nav-close, .mobile-nav-backdrop, .mobile-quick-add { display: none; }
 .view-tabs { display: flex; align-items: center; gap: 8px; margin: 6px 0 16px; }
 .tab-button, .client-tab, .mode-button { border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; font: 600 15px inherit; }
 .tab-button, .client-tab { padding: 11px 14px; }

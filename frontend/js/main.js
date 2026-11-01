@@ -128,6 +128,7 @@ function expandDemoMeetings(monthValue) {
 }
 
 function bindDashboard() {
+  bindMobileNav();
   const logoutButton = document.querySelector('#logout');
   if (logoutButton) {
     logoutButton.onclick = async () => {
@@ -227,6 +228,7 @@ function bindDashboard() {
     };
   });
   document.querySelector('#new-meeting').onclick = () => openModal('meeting');
+  document.querySelector('#mobile-new-meeting')?.addEventListener('click', () => openModal('meeting'));
   document.querySelector('#new-today-meeting').onclick = () => openModal('meeting', { date: currentDate() });
   document.querySelector('#new-client').onclick = () => openModal('client');
   document.querySelector('#new-reminder').onclick = () => openReminderModal();
@@ -241,6 +243,48 @@ function bindDashboard() {
       if (reminder) openReminderModal(reminder);
     };
   });
+}
+
+function bindMobileNav() {
+  const topbar = root.querySelector('.topbar');
+  const nav = root.querySelector('.top-nav');
+  if (!topbar || !nav) return;
+
+  let toggle = topbar.querySelector('.mobile-nav-toggle');
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'button secondary mobile-nav-toggle';
+    toggle.setAttribute('aria-label', 'Open navigation');
+    toggle.setAttribute('aria-controls', 'workspace-navigation');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.textContent = 'Menu';
+    topbar.insertBefore(toggle, nav);
+  }
+
+  nav.id = 'workspace-navigation';
+  if (!nav.querySelector('.mobile-nav-close')) {
+    nav.insertAdjacentHTML('afterbegin', '<button type="button" class="mobile-nav-close" aria-label="Close navigation">×</button>');
+  }
+  if (!root.querySelector('.mobile-nav-backdrop')) {
+    topbar.insertAdjacentHTML('afterend', '<button type="button" class="mobile-nav-backdrop" aria-label="Close navigation"></button>');
+  }
+
+  const close = () => {
+    topbar.classList.remove('nav-open');
+    root.querySelector('main')?.classList.remove('nav-open');
+    toggle.setAttribute('aria-expanded', 'false');
+  };
+  const open = () => {
+    topbar.classList.add('nav-open');
+    root.querySelector('main')?.classList.add('nav-open');
+    toggle.setAttribute('aria-expanded', 'true');
+  };
+
+  toggle.onclick = () => (topbar.classList.contains('nav-open') ? close() : open());
+  nav.querySelector('.mobile-nav-close').onclick = close;
+  root.querySelector('.mobile-nav-backdrop').onclick = close;
+  nav.querySelectorAll('.top-nav-link').forEach((link) => { link.onclick = close; });
 }
 
 function navigateCalendar(direction) {
@@ -589,6 +633,7 @@ function openModal(type, options = {}) {
 }
 
 function bindClientPage(clientId) {
+  bindMobileNav();
   const clientPrevious = root.querySelector('#client-month-previous');
   const clientNext = root.querySelector('#client-month-next');
   if (clientPrevious) clientPrevious.onclick = async () => { month = shiftMonth(month, -1); await refresh(); };

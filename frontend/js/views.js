@@ -167,6 +167,7 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
     <header class="topbar"><div class="brand-mark"><span class="mark">✦</span> stillpoint</div><div class="user-actions"><span class="avatar">${escapeHtml((workspace.user?.email || workspace.user?.name || 'T').slice(0, 1).toUpperCase())}</span><button class="button secondary" id="logout">Sign out</button></div></header>
     <section class="intro"><div><div class="eyebrow">Private practice · Israel</div><h1>Your month, in view.</h1><p>Sessions, fees, and payments — together in one place.</p></div></section>
     <section class="summary-grid"><article class="summary-card"><div class="summary-label">Sessions this month</div><div class="summary-value">${meetings.length}</div></article><article class="summary-card mint"><div class="summary-label">Fees charged · ILS</div><div class="summary-value">${ils(completedTotal)} <small>${usd(completedTotal, rate)}</small></div></article><article class="summary-card lilac"><div class="summary-label">Upcoming</div><div class="summary-value">${meetings.filter((item) => item.status === 'scheduled').length}</div></article></section>
+    <button type="button" class="button mobile-quick-add" id="mobile-new-meeting">+ Add session</button>
     <nav class="view-tabs" aria-label="Workspace views"><button class="tab-button active" data-tab="today-view">Your day</button><button class="tab-button" data-tab="calendar-view">Calendar</button><button class="tab-button" data-tab="sessions-view">Sessions</button><button class="tab-button" data-tab="clients-view">Clients</button><button class="tab-button" data-tab="reminders-view">Reminders</button><button class="button tab-action" id="new-meeting">+ New session</button></nav>
     <section class="view-panel" id="today-view">${todaySchedule(calendarMeetings, today, rate)}</section>
     <section class="view-panel hidden" id="calendar-view"><section class="panel calendar-panel"><div class="panel-header"><div><h2>Calendar</h2><p class="panel-note">${calendarLabel} · ${meetings.length} sessions</p></div><div class="calendar-toolbar">${monthPicker(month)}<div class="calendar-nav" role="group" aria-label="Calendar navigation"><button type="button" class="calendar-nav-button" id="calendar-previous" aria-label="Previous ${navigationUnit}">‹</button><button type="button" class="calendar-nav-button" id="calendar-next" aria-label="Next ${navigationUnit}">›</button></div><button class="button secondary today-button" id="calendar-today">Today</button><div class="calendar-modes" role="group" aria-label="Calendar view"><button class="mode-button ${calendarMode === 'month' ? 'active' : ''}" data-calendar-mode="month">Month</button><button class="mode-button ${calendarMode === 'week' ? 'active' : ''}" data-calendar-mode="week">Week</button><button class="mode-button ${calendarMode === 'day' ? 'active' : ''}" data-calendar-mode="day">Day</button></div></div></div>${calendarMarkup(calendarMode, month, calendarMeetings, rate, focusDate)}</section></section>
@@ -186,13 +187,26 @@ export function renderDashboard(root, workspace, month, rate = DEFAULT_USD_TO_IL
   const nav = document.createElement('nav');
   nav.className = 'top-nav';
   nav.setAttribute('aria-label', 'Workspace views');
-  nav.innerHTML = `${navItems.map(([name, label]) => `<a class="top-nav-link ${page === name ? 'active' : ''}" href="/${name}" data-page-link="${name}">${label}</a>`).join('')}<button class="button top-nav-action" id="new-meeting">+ New session</button>`;
+  nav.innerHTML = `<button type="button" class="mobile-nav-close" aria-label="Close navigation">×</button>${navItems.map(([name, label]) => `<a class="top-nav-link ${page === name ? 'active' : ''}" href="/${name}" data-page-link="${name}">${label}</a>`).join('')}<button class="button top-nav-action" id="new-meeting">+ New session</button>`;
+  nav.id = 'workspace-navigation';
+  const menuToggle = document.createElement('button');
+  menuToggle.type = 'button';
+  menuToggle.className = 'button secondary mobile-nav-toggle';
+  menuToggle.setAttribute('aria-label', 'Open navigation');
+  menuToggle.setAttribute('aria-controls', 'workspace-navigation');
+  menuToggle.setAttribute('aria-expanded', 'false');
+  menuToggle.textContent = 'Menu';
+  topbar.insertBefore(menuToggle, userActions);
   topbar.insertBefore(nav, userActions);
+  topbar.insertAdjacentHTML('afterend', '<button type="button" class="mobile-nav-backdrop" aria-label="Close navigation"></button>');
   tabs.remove();
   userActions.querySelector('#logout')?.remove();
   const activePanel = pageTargets[page];
   root.querySelectorAll('.view-panel').forEach((panel) => panel.classList.toggle('hidden', panel.id !== activePanel));
-  if (page !== 'today') root.querySelector('.summary-grid')?.remove();
+  if (page !== 'today') {
+    root.querySelector('.summary-grid')?.remove();
+    root.querySelector('#mobile-new-meeting')?.remove();
+  }
   if (page === 'settings') root.querySelector('main').insertAdjacentHTML('beforeend', settingsPage(workspace.user));
   if (page === 'money') root.querySelector('main').insertAdjacentHTML('beforeend', renderMoneyManagement(workspace, month, rate));
 
