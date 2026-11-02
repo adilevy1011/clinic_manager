@@ -34,9 +34,9 @@ class MeetingCreate(BaseModel):
     client_id: str
     meeting_date: date
     start_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    duration_minutes: int = Field(default=50, ge=1, le=1440)
     cost: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
     currency: Literal["ILS", "USD"] = "ILS"
-    status: str = Field(default="scheduled", pattern="^(scheduled|completed|cancelled)$")
     payment_status: Literal["unpaid", "partial", "paid"] = "unpaid"
     amount_paid: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
     notes: str | None = Field(default=None, max_length=1000)
@@ -52,9 +52,9 @@ class MeetingUpdate(BaseModel):
     client_id: str | None = None
     meeting_date: date | None = None
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    duration_minutes: int | None = Field(default=None, ge=1, le=1440)
     cost: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     currency: Literal["ILS", "USD"] | None = None
-    status: str | None = Field(default=None, pattern="^(scheduled|completed|cancelled)$")
     payment_status: Literal["unpaid", "partial", "paid"] | None = None
     amount_paid: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     notes: str | None = Field(default=None, max_length=1000)

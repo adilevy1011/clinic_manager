@@ -1,8 +1,9 @@
 """Meeting and calendar endpoints."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from calendar import monthrange
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -67,6 +68,36 @@ def is_virtual_id(meeting_id: str) -> bool:
     return ":" in meeting_id
 
 
+def therapist_timezone(db) -> Any:
+    profiles = db.table("profiles").select("timezone").execute().data or []
+    timezone_name = profiles[0].get("timezone") if profiles else None
+    try:
+        return ZoneInfo(timezone_name or "Asia/Jerusalem")
+    except Exception:
+        return timezone.utc
+
+
+def meeting_status(row: dict[str, Any], now: datetime) -> str:
+    if row.get("status") == "cancelled" or row.get("recurrence_exception_type") == "cancelled":
+        return "cancelled"
+    start = datetime.fromisoformat(f"{row['meeting_date']}T{row['start_time']}").replace(tzinfo=now.tzinfo)
+    duration = int(row.get("duration_minutes") or 50)
+    return "completed" if start + timedelta(minutes=duration) <= now else "scheduled"
+
+
+def apply_automatic_statuses(db, rows: list[dict[str, Any]], timezone_value: Any) -> list[dict[str, Any]]:
+    now = datetime.now(timezone_value)
+    updates: list[tuple[str, str]] = []
+    for row in rows:
+        status = meeting_status(row, now)
+        row["status"] = status
+        if not row.get("is_virtual") and row.get("status") != "cancelled":
+            updates.append((row["id"], status))
+    for meeting_id, status in updates:
+        db.table("meetings").update({"status": status}).eq("id", meeting_id).execute()
+    return rows
+
+
 def validate_rule(rule: dict[str, Any], start: date) -> None:
     frequency = rule.get("frequency")
     interval = rule.get("interval", 1)
@@ -118,7 +149,7 @@ def list_meetings(
         if row.get("recurrence_exception_type") != "cancelled"
         and window_start <= date.fromisoformat(row["meeting_date"]) <= window_end
     )
-    return sorted(result, key=lambda row: (row["meeting_date"], row["start_time"]))
+    return sorted(apply_automatic_statuses(db, result, therapist_timezone(db)), key=lambda row: (row["meeting_date"], row["start_time"]))
 
 
 @router.post("", status_code=201)
@@ -135,6 +166,7 @@ def create_meeting(payload: MeetingCreate, context=Depends(current_user)) -> dic
     else:
         row.pop("recurrence_end_date", None)
     row["therapist_id"] = user["id"]
+    row["status"] = "scheduled"
     return db.table("meetings").insert(row).execute().data[0]
 
 
@@ -158,13 +190,13 @@ def update_meeting(meeting_id: str, payload: MeetingUpdate, context=Depends(curr
             old_end = source.get("recurrence_end_date")
             previous_end = occurrence - timedelta(days=1)
             db.table("meetings").update({"recurrence_end_date": previous_end.isoformat()}).eq("id", source["id"]).execute()
-            new_row = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
+            new_row = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "duration_minutes", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
             new_row.update(updates)
             new_row.update({"meeting_date": updates.get("meeting_date", occurrence.isoformat()), "recurrence_rule": updates.get("recurrence_rule", source["recurrence_rule"]), "recurrence_end_date": updates.get("recurrence_end_date", old_end)})
             validate_rule(new_row["recurrence_rule"], date.fromisoformat(new_row["meeting_date"]))
             return db.table("meetings").insert(new_row).execute().data[0]
 
-        exception = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
+        exception = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "duration_minutes", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
         exception.update(updates)
         exception.update({"series_id": source["series_id"], "meeting_date": updates.get("meeting_date", occurrence.isoformat()), "recurrence_occurrence_date": occurrence.isoformat(), "recurrence_exception_type": "override"})
         return db.table("meetings").insert(exception).execute().data[0]
@@ -181,6 +213,26 @@ def update_meeting(meeting_id: str, payload: MeetingUpdate, context=Depends(curr
     result = db.table("meetings").update(updates).eq("id", meeting_id).execute()
     if not result.data:
         raise HTTPException(404, "Meeting not found.")
+    return result.data[0]
+
+
+@router.post("/{meeting_id}/cancel")
+def cancel_meeting(meeting_id: str, context=Depends(current_user)) -> dict[str, Any]:
+    db, user = context
+    if is_virtual_id(meeting_id):
+        series_id, occurrence_value = meeting_id.split(":", 1)
+        occurrence = date.fromisoformat(occurrence_value)
+        source_rows = db.table("meetings").select("*").eq("series_id", series_id).eq("therapist_id", user["id"]).execute().data or []
+        source = next((row for row in source_rows if row.get("recurrence_rule") and not row.get("recurrence_exception_type")), None)
+        if not source:
+            raise HTTPException(404, "Recurring session not found.")
+        exception = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "duration_minutes", "cost", "currency", "payment_status", "amount_paid", "notes")}
+        exception.update({"series_id": source["series_id"], "meeting_date": occurrence.isoformat(), "recurrence_occurrence_date": occurrence.isoformat(), "recurrence_exception_type": "cancelled", "status": "cancelled"})
+        return db.table("meetings").insert(exception).execute().data[0]
+    rows = db.table("meetings").select("*").eq("id", meeting_id).eq("therapist_id", user["id"]).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Meeting not found.")
+    result = db.table("meetings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
     return result.data[0]
 
 
@@ -209,7 +261,7 @@ def delete_meeting(
             else:
                 db.table("meetings").update({"recurrence_end_date": (occurrence - timedelta(days=1)).isoformat()}).eq("id", source["id"]).execute()
             return
-        exception = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
+        exception = {key: source[key] for key in ("therapist_id", "client_id", "start_time", "duration_minutes", "cost", "currency", "status", "payment_status", "amount_paid", "notes")}
         exception.update({"series_id": source["series_id"], "meeting_date": occurrence.isoformat(), "recurrence_occurrence_date": occurrence.isoformat(), "recurrence_exception_type": "cancelled", "status": "cancelled"})
         db.table("meetings").insert(exception).execute()
         return

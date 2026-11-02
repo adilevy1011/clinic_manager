@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies import current_user
 from ..schemas import PaymentCreate
-from .meetings import date_range, occurrence_dates, virtual_occurrence
+from .meetings import apply_automatic_statuses, date_range, occurrence_dates, therapist_timezone, virtual_occurrence
 
 router = APIRouter(prefix="/api/clients", tags=["payments"])
 
@@ -57,7 +57,7 @@ def client_finance(
         raise HTTPException(404, "Client not found.")
 
     all_meetings = db.table("meetings").select("*").eq("client_id", client_id).order("meeting_date").order("start_time").execute().data or []
-    meetings = month_meetings(all_meetings, month)
+    meetings = apply_automatic_statuses(db, month_meetings(all_meetings, month), therapist_timezone(db))
     payments = db.table("payments").select("*").eq("client_id", client_id).order("payment_date").execute().data or []
     month_start, month_end = date_range(month)
     charged = sum((numeric(meeting.get("cost")) for meeting in meetings if meeting.get("status") == "completed"), Decimal("0"))

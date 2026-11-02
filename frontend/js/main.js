@@ -5,6 +5,7 @@ import {
   deleteReminder,
   deletePayment,
   deleteMeeting,
+  cancelMeeting,
   getCurrentUser,
   isDemo,
   loadWorkspace,
@@ -124,7 +125,15 @@ function expandDemoMeetings(monthValue) {
     }
   });
 
-  return output.sort((a, b) => `${a.meeting_date}${a.start_time}`.localeCompare(`${b.meeting_date}${b.start_time}`));
+  const now = new Date();
+  return output
+    .map((meeting) => {
+      if (meeting.status === 'cancelled') return meeting;
+      const end = new Date(`${meeting.meeting_date}T${meeting.start_time.slice(0, 5)}`);
+      end.setMinutes(end.getMinutes() + Number(meeting.duration_minutes || 50));
+      return { ...meeting, status: end <= now ? 'completed' : 'scheduled' };
+    })
+    .sort((a, b) => `${a.meeting_date}${a.start_time}`.localeCompare(`${b.meeting_date}${b.start_time}`));
 }
 
 function bindDashboard() {
@@ -467,6 +476,27 @@ function openModal(type, options = {}) {
   const clientSelect = document.querySelector('#client-select');
   if (clientSelect?.dataset.value === '__new__') setNewClientVisibility(true);
 
+  const cancelButton = document.querySelector('#cancel-meeting');
+  if (cancelButton && options.meeting) {
+    cancelButton.onclick = async () => {
+      if (!window.confirm('Cancel this session? It will remain recoverable in the database.')) return;
+      try {
+        if (demo) {
+          if (options.meeting.is_virtual) {
+            demoWorkspace.meetingExceptions.push({ ...options.meeting, id: crypto.randomUUID(), recurrence_exception_type: 'cancelled', status: 'cancelled' });
+          } else {
+            const savedMeeting = demoWorkspace.meetings.find((item) => item.id === options.meeting.id);
+            if (savedMeeting) savedMeeting.status = 'cancelled';
+          }
+        } else await cancelMeeting(options.meeting.id);
+        modal.remove();
+        await refresh();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    };
+  }
+
   const deleteButton = document.querySelector('#delete-meeting');
   if (deleteButton && options.meeting) {
     deleteButton.onclick = async () => {
@@ -561,9 +591,9 @@ function openModal(type, options = {}) {
           client_id: clientId,
           meeting_date: values.meeting_date,
           start_time: values.start_time,
+          duration_minutes: Number(values.duration_minutes || 50),
           cost: Number(values.cost_ils || 0),
           currency: values.cost_currency || DEFAULT_DISPLAY_CURRENCY,
-          status: values.status,
           payment_status: values.payment_status || 'unpaid',
           amount_paid: values.payment_status === 'paid'
             ? Number(values.cost_ils || 0)
@@ -931,6 +961,9 @@ export async function boot() {
       exchangeRate = await getOfficialShekelRate();
     }
     await refresh();
+    window.setInterval(() => {
+      if (!document.querySelector('.modal-backdrop')) refresh().catch((error) => console.error('Session refresh failed:', error));
+    }, 60_000);
   } catch (error) {
     if (root.dataset.page !== 'login' && error.status === 401) {
       window.location.replace('/login');

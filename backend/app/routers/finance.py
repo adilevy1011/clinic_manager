@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 
 from ..dependencies import current_user
-from .meetings import date_range
+from .meetings import apply_automatic_statuses, date_range, therapist_timezone
 from .payments import month_meetings, numeric
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
@@ -26,7 +26,11 @@ def client_money_management(
     result = []
 
     for client in clients:
-        client_meetings = month_meetings([meeting for meeting in meetings if meeting.get("client_id") == client["id"]], month)
+        client_meetings = apply_automatic_statuses(
+            db,
+            month_meetings([meeting for meeting in meetings if meeting.get("client_id") == client["id"]], month),
+            therapist_timezone(db),
+        )
         client_payments = [payment for payment in payments if payment.get("client_id") == client["id"]]
         charged = sum((numeric(meeting.get("cost")) for meeting in client_meetings if meeting.get("status") == "completed"), Decimal("0"))
         anticipated = sum((numeric(meeting.get("cost")) for meeting in client_meetings if meeting.get("status") == "scheduled"), Decimal("0"))

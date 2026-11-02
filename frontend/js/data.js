@@ -13,15 +13,15 @@ export const sampleWorkspace = {
   ],
   meetings: [
     {
-      id: '1', client_id: 'a', meeting_date: '2026-10-31', start_time: '09:00', cost: 420,
+      id: '1', client_id: 'a', meeting_date: '2026-10-31', start_time: '09:00', duration_minutes: 50, cost: 420,
       status: 'scheduled', clients: { name: 'Noa Levi' },
     },
     {
-      id: '2', client_id: 'b', meeting_date: '2026-10-31', start_time: '11:30', cost: 420,
+      id: '2', client_id: 'b', meeting_date: '2026-10-31', start_time: '11:30', duration_minutes: 50, cost: 420,
       status: 'completed', clients: { name: 'Daniel Cohen' },
     },
     {
-      id: '3', client_id: 'c', meeting_date: '2026-10-29', start_time: '16:00', cost: 360,
+      id: '3', client_id: 'c', meeting_date: '2026-10-29', start_time: '16:00', duration_minutes: 50, cost: 360,
       status: 'completed', clients: { name: 'Maya Bar' },
     },
   ],

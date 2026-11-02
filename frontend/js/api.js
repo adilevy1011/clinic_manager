@@ -85,6 +85,10 @@ export async function updateMeeting(meetingId, payload) {
   });
 }
 
+export async function cancelMeeting(meetingId) {
+  return request(`/meetings/${meetingId}/cancel`, { method: 'POST' });
+}
+
 export async function deleteMeeting(meetingId, scope = 'single') {
   return request(`/meetings/${meetingId}?scope=${scope}`, { method: 'DELETE' });
 }
